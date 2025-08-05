@@ -326,7 +326,7 @@ def mostra_dashboard(utente):
         df2.to_excel(DATA_FILE, index=False)
         st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
         messaggio_successo('✅ Modifiche salvate con successo.')
-        st.experimental_rerun()
+        st.rerun()
 
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
@@ -386,6 +386,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
