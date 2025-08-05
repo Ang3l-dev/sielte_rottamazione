@@ -359,7 +359,7 @@ def interfaccia():
     col1, col2 = st.columns([1, 5])
     with col1:
         try:
-            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=120)
+            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=180)
         except:
             st.markdown("🧭")
     with col2:
@@ -407,6 +407,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
