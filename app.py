@@ -134,7 +134,12 @@ def registrazione():
     st.caption("🔐 La password deve contenere almeno 6 caratteri, un numero e un simbolo.")
 
     ruolo = st.radio("Ruolo", ["User", "Admin"])
-    reparti = st.multiselect("Reparti abilitati", ["Magazzino", "Logistica", "Produzione"]) if ruolo == "User" else []
+    if ruolo == "User":
+        reparti_disponibili = carica_reparti_da_excel()
+        reparti = st.multiselect("Reparti abilitati", reparti_disponibili)
+    else:
+        reparti = []
+
 
     if st.button("Registra"):
         errori = []
@@ -381,5 +386,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
