@@ -1,3 +1,4 @@
+1
 import streamlit as st
 import json
 import os
@@ -133,7 +134,7 @@ def registrazione():
     conferma_password = st.text_input("Conferma Password", type="password")
     st.caption("🔐 La password deve contenere almeno 6 caratteri, un numero e un simbolo.")
 
-    ruolo = st.radio("Ruolo", ["User", "Admin"])
+    ruolo = st.radio("Ruolo", ["User"])
     if ruolo == "User":
         reparti_disponibili = carica_reparti_da_excel()
         reparti = st.multiselect("Reparti abilitati", reparti_disponibili)
@@ -313,16 +314,37 @@ def mostra_dashboard(utente):
             df2[c] = df2[c].astype(str).str.replace(r"\.0$", "", regex=True)
         df2['Rottamazione'] = df2.get('Rottamazione', False).fillna(False).astype(bool)
         df2['UserRottamazione'] = df2.get('UserRottamazione', '').fillna('').astype(str)
+                righe_bloccate = []
+
         for row in updated:
             idx = int(row['_orig_index'])
             new_flag = bool(row['Rottamazione'])
-            prev_user = df2.at[idx,'UserRottamazione']
-            if new_flag and not prev_user:
-                df2.at[idx,'Rottamazione'] = True
-                df2.at[idx,'UserRottamazione'] = current_email
-            elif not new_flag and prev_user == current_email:
-                df2.at[idx,'Rottamazione'] = False
-                df2.at[idx,'UserRottamazione'] = ''
+            prev_flag = df2.at[idx, 'Rottamazione']
+            prev_user = df2.at[idx, 'UserRottamazione']
+
+            if new_flag and not prev_flag:
+                # Inserisco nuovo flag
+                df2.at[idx, 'Rottamazione'] = True
+                df2.at[idx, 'UserRottamazione'] = current_email
+
+            elif not new_flag and prev_flag and prev_user == current_email:
+                # Rimuovo flag se sono lo stesso utente
+                df2.at[idx, 'Rottamazione'] = False
+                df2.at[idx, 'UserRottamazione'] = ''
+
+            elif (new_flag != prev_flag) and prev_user != current_email:
+                # Flag impostato da altro utente, non modificabile
+                righe_bloccate.append(idx)
+
+        df2.to_excel(DATA_FILE, index=False)
+        st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
+
+        if righe_bloccate:
+            st.warning(f"⚠️ {len(righe_bloccate)} righe non sono state modificate perché inserite da altri utenti.")
+
+        messaggio_successo('✅ Modifiche salvate con successo.')
+        st.rerun()
+
         df2.to_excel(DATA_FILE, index=False)
         st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
         messaggio_successo('✅ Modifiche salvate con successo.')
@@ -386,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
