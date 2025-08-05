@@ -1,0 +1,83 @@
+[
+    {
+        "nome": "Andrea",
+        "cognome": "",
+        "email": "a.venticinque@sielte.it",
+        "password": "k6Ie*FmZ&5",
+        "ruolo": "User",
+        "reparti": [
+            "Logistica"
+        ],
+        "reset_required": true
+    },
+    {
+        "nome": "Alfio",
+        "cognome": "Foti",
+        "email": "a.venticinque@sielte.it",
+        "password": "Sweet$2025",
+        "ruolo": "User",
+        "reparti": [
+            "Logistica"
+        ]
+    },
+    {
+        "nome": "",
+        "cognome": "",
+        "email": "a.venticinque@sielte.it",
+        "password": "Sweet$2025",
+        "ruolo": "User",
+        "reparti": []
+    },
+    {
+        "nome": "Angelo",
+        "cognome": "Marinello",
+        "email": "a.ventici@gmail.com",
+        "password": "Sweet$1",
+        "ruolo": "User",
+        "reparti": [
+            "Logistica"
+        ]
+    },
+    {
+        "nome": "Gennaro",
+        "cognome": "Adddd",
+        "email": "bengndfn@slsls.it",
+        "password": "Sweet$1",
+        "ruolo": "User",
+        "reparti": [
+            "Magazzino"
+        ]
+    },
+    {
+        "nome": "gdfg",
+        "cognome": "dfgdfg",
+        "email": "dfgdfgdg",
+        "password": "fsdfsdfsdfsdf$1",
+        "ruolo": "User",
+        "reparti": [
+            "Magazzino"
+        ]
+    },
+    {
+        "nome": "fdgfdgg",
+        "cognome": "gdfgdgd",
+        "email": "dfgdgd@sdsf.it",
+        "password": "sweet$25",
+        "ruolo": "User",
+        "reparti": [
+            "Magazzino",
+            "Produzione",
+            "Logistica"
+        ]
+    },
+    {
+        "nome": "gjhfgjfghfg",
+        "cognome": "fghfhfh",
+        "email": "fhfhfhfhfh@sielte.it",
+        "password": "sweet$25",
+        "ruolo": "User",
+        "reparti": [
+            "Magazzino"
+        ]
+    }
+]
