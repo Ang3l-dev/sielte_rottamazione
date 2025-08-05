@@ -19,7 +19,7 @@ SMTP_EMAIL = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 
 UTENTI_FILE = "utenti.json"
-DATA_FILE = "C:/Script/sielte_rottamazione/data/data.xlsx"
+DATA_FILE = os.path.join("data", "data.xlsx")
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -371,3 +371,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
