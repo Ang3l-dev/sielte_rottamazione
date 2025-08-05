@@ -114,6 +114,16 @@ def login():
         st.rerun()
 
 # Registrazione
+@st.cache_data
+def carica_reparti_da_excel():
+    try:
+        df = pd.read_excel(DATA_FILE)
+        df["CodReparto"] = df["CodReparto"].fillna("").astype(str)
+        return sorted(df["CodReparto"].unique())
+    except Exception as e:
+        st.error(f"Errore caricamento Reparti: {e}")
+        return []
+
 def registrazione():
     st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
     nome = st.text_input("Nome")
@@ -371,4 +381,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
