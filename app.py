@@ -314,7 +314,7 @@ def mostra_dashboard(utente):
             df2[c] = df2[c].astype(str).str.replace(r"\.0$", "", regex=True)
         df2['Rottamazione'] = df2.get('Rottamazione', False).fillna(False).astype(bool)
         df2['UserRottamazione'] = df2.get('UserRottamazione', '').fillna('').astype(str)
-                righe_bloccate = []
+        righe_bloccate = []
 
         for row in updated:
             idx = int(row['_orig_index'])
@@ -408,6 +408,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
