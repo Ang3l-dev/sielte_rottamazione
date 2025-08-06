@@ -242,6 +242,13 @@ def stile_app():
         font-weight: bold; 
         margin: 1em 0; 
     }
+        /* Stile specifico per il pulsante Accedi */
+    .stForm button[type="submit"] {
+        background-color: #00bcd4 !important;
+        color: white !important;
+        font-weight: bold !important;
+    }
+
     .stButton > button { 
         background-color: #00bcd4; 
         color: white; 
@@ -679,5 +686,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
