@@ -218,8 +218,13 @@ def mostra_dashboard(utente):
     updated = grid_response["data"] if not isinstance(grid_response["data"], pd.DataFrame) else grid_response["data"].to_dict("records")
 
     # Salva solo quando clicchi il bottone
-    if st.button("Salva"):  
-        background_save(updated, df_raw, current_email)
+    # Salvataggio in due fasi: mostra immediatamente messaggio
+if st.button("Salva"):
+    st.session_state["salvataggio_in_corso"] = True
+
+if st.session_state.get("salvataggio_in_corso"):
+    st.info("⏳ Attendere: salvataggio in corso...")
+    background_save(updated, df_raw, current_email)
 
     # Statistiche finali
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
