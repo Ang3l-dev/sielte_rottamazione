@@ -150,7 +150,7 @@ def dashboard_page():
 
 # --- Router ---
 def main():
-    params = st.experimental_get_query_params()
+    params = st.query_params
     page = params.get('page',['login'])[0]
     if page=='login': login_page()
     elif page=='dashboard': dashboard_page()
@@ -160,5 +160,6 @@ def main():
     else: login_page()
 
 if __name__=='__main__': main()
+
 
 
