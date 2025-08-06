@@ -302,15 +302,25 @@ def mostra_dashboard(utente):
     dis_sel = st.multiselect('Filtra per Dislocazione Territoriale', df['Dislocazione Territoriale'].unique().tolist())
     ubi_sel = st.multiselect('Filtra per Ubicazione', df['Ubicazione'].unique().tolist())
 
-    # Rimuovi intervalli in giorni dal filtro
-    intervalli_validi = sorted(set(i for i in df['Ultimo Consumo'].unique()
-                                   if i not in ["Oggi", "1 Giorno", "2 Giorni", "3 Giorni", "Nessun Consumo"]
-                                   and ("Mese" in i or "Anno" in i)),
-                               key=lambda x: (
-                                   int(x.split()[0]) if x.split()[0].isdigit() else 0,
-                                   0 if "Mese" in x else 1  # Prima i mesi poi gli anni
-                               ))
-    consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi/anni)', intervalli_validi)
+# Prepara il filtro completo e ordinato
+def parse_intervallo(val):
+    if "Mese" in val:
+        return (0, int(val.split()[0]))
+    elif "Anno" in val:
+        return (1, int(val.split()[0]))
+    elif val == "Nessun Consumo":
+        return (2, 0)
+    else:
+        return (99, 0)  # Ignora tutto il resto
+
+# Rimuovi giorni e "Oggi", ma includi "Nessun Consumo"
+valori_filtrabili = df['Ultimo Consumo'].unique()
+intervalli_validi = sorted(
+    [v for v in valori_filtrabili if "Giorno" not in v and v != "Oggi"],
+    key=parse_intervallo
+)
+
+consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi, anni o assenza)', intervalli_validi)
 
     dff = df.copy()
     if rep_sel: dff = dff[dff['CodReparto'].isin(rep_sel)]
@@ -421,6 +431,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
