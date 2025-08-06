@@ -40,7 +40,7 @@ SMTP_PORT     = 587
 SMTP_EMAIL    = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 UTENTI_FILE   = "utenti.json"
-DATA_FILE     = os.path.join("data", "data.xlsx")  # Torniamo al file XLSX
+DATA_FILE     = os.path.join("data", "data.xlsx")
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -121,9 +121,12 @@ def background_save_logic(updated, df_raw, current_email):
     st.session_state["pagina"] = "Login"
     st.rerun()
 
-def background_save(df_to_save, df_raw, current_email):
-    threading.Thread(target=background_save_logic, args=(df_to_save, df_raw, current_email)).start()
-    st.success("✅ Salvataggio in corso in background... Verrai reindirizzato alla pagina di login.")
+def background_save(updated, df_raw, current_email):
+    threading.Thread(target=background_save_logic, args=(updated, df_raw, current_email)).start()
+    st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
+    st.markdown("""
+        <meta http-equiv="refresh" content="3;url=/" />
+    """, unsafe_allow_html=True)
     st.stop()
 
 
@@ -273,6 +276,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
