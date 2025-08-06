@@ -201,6 +201,19 @@ def mostra_dashboard(utente):
         return (99,0)
     vals=sorted(vals,key=ord)
     consumo_sel=st.multiselect('Filtra per Ultimo Consumo',vals)
+    def parse_intervallo(val):
+    if "Mese" in val:
+        # categoria 0 → mesi
+        return (0, int(val.split()[0]))
+    if "Anno" in val:
+        # categoria 1 → anni
+        return (1, int(val.split()[0]))
+    if "Nessun" in val:
+        # categoria 2 → assenza
+        return (2, 0)
+    # tutto il resto (es. 'Oggi' o eventuali giorni residui) fuori lista
+    return (3, 0)
+
     dff=df.copy()
     if rep_sel: dff=dff[dff['CodReparto'].isin(rep_sel)]
     if dis_sel: dff=dff[dff['Dislocazione Territoriale'].isin(dis_sel)]
@@ -274,6 +287,7 @@ def main():
     elif pag=='Recupera Password': recupera_password()
 
 if __name__=='__main__': main()
+
 
 
 
