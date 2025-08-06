@@ -278,6 +278,10 @@ def mostra_dashboard(utente):
     df["Rottamazione"]      = df["Rottamazione"].fillna(False).astype(bool)
     df["UserRottamazione"]  = df["UserRottamazione"].fillna("").astype(str)
     df["Ultimo Consumo"]    = df["Data Ultimo Consumo"].apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce")))
+    df["Data Ultimo Carico"]  = df["Data Ultimo Carico"].dt.strftime('%d/%m/%Y')
+    df["Data Ultimo Consumo"] = df["Data Ultimo Consumo"].dt.strftime('%d/%m/%Y')
+    df["Ultimo Consumo"] = df["Data Ultimo Consumo"]\
+        .apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce"))
 
     # Filtri
     st.markdown("### Filtri")
@@ -406,5 +410,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
