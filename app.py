@@ -38,17 +38,19 @@ def carica_utenti():
 def salva_utenti(lista_utenti):
     with open(UTENTI_FILE, 'w') as f:
         json.dump(lista_utenti, f, indent=4)
-
 # --- Stile CSS ---
 def stile_login():
-    st.markdown(
-        """
+    st.markdown("""
         <style>
         .stApp {
             background: linear-gradient(135deg, #2c3e50, #3498db);
             color: white;
         }
         label, div[data-baseweb="radio"] * {
+            color: white !important;
+            font-weight: bold;
+        }
+        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] > p {
             color: white !important;
             font-weight: bold;
         }
@@ -74,12 +76,13 @@ def stile_login():
             color: white;
             font-weight: bold;
         }
+                /* Cambia solo il colore del testo del pulsante Scarica CSV */
         [data-testid="stDownloadButton"] button {
             color: black !important;
             font-weight: bold;
         }
         </style>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 def messaggio_successo(testo):
     st.markdown(f"""<div class='custom-success'>✅ {testo}</div>""", unsafe_allow_html=True)
@@ -326,6 +329,7 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
 
 
