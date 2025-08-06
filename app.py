@@ -125,20 +125,16 @@ def background_save_logic(updated, df_raw, current_email):
 
 def background_save(updated, df_raw, current_email):
     with st.spinner("💾 Salvataggio in corso, attendere..."):
-        time.sleep(1.5)  # Simula attesa visiva (serve per mostrare lo spinner)
-
-    def async_save():
         try:
             background_save_logic(updated, df_raw, current_email)
+            st.success("✅ Salvataggio effettuato con successo. Verrai reindirizzato alla pagina di login tra pochi secondi.")
+            st.markdown("""
+                <meta http-equiv="refresh" content="3;url=/" />
+            """, unsafe_allow_html=True)
+            st.stop()
         except Exception as e:
-            st.error(f"Errore salvataggio: {e}")
+            st.error(f"Errore durante il salvataggio: {e}")
 
-    threading.Thread(target=async_save).start()
-    st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
-    st.markdown("""
-        <meta http-equiv="refresh" content="3;url=/" />
-    """, unsafe_allow_html=True)
-    st.stop()
 
 
 # --- Login / Registrazione / Reset Password ---
@@ -286,6 +282,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
