@@ -322,6 +322,7 @@ intervalli_validi = sorted(
 
 consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi, anni o assenza)', intervalli_validi)
 
+
     dff = df.copy()
     if rep_sel: dff = dff[dff['CodReparto'].isin(rep_sel)]
     if dis_sel: dff = dff[dff['Dislocazione Territoriale'].isin(dis_sel)]
@@ -431,6 +432,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
