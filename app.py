@@ -331,6 +331,8 @@ def pagina_login():
         submit = st.form_submit_button("Accedi")
         
         if submit:
+            # Converti email in minuscolo per uniformità
+            email = email.lower().strip()
             user = trova_utente(email)
             if user and user["password"] == password:
                 if user.get("reset_required", False):
@@ -677,4 +679,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
