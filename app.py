@@ -158,7 +158,7 @@ def carica_reparti_da_excel():
         return []
 
 def registrazione():
-    st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
+    st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)   
     nome    = st.text_input("Nome")
     cognome = st.text_input("Cognome")
     email   = st.text_input("Email")
@@ -235,14 +235,13 @@ def key_consumo(v):
 def background_save(df_to_save):
     df_to_save.to_excel(DATA_FILE, index=False)
 
-# --- Dashboard principale ---
 def mostra_dashboard(utente):
     stile_login()
     st.markdown(f"<div class='title-center'>Benvenuto, {utente['nome']}!</div>", unsafe_allow_html=True)
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
-    # 1) Leggi tutto una sola volta
+    # 1) Leggi il file Excel da disco UNA volta
     try:
         df_raw = pd.read_excel(DATA_FILE)
     except Exception as e:
@@ -250,81 +249,80 @@ def mostra_dashboard(utente):
         return
     df_raw.columns = df_raw.columns.str.strip()
 
-    # Prepara DF per view
-    df = df_raw.reset_index().rename(columns={"index":"_orig_index"})
+    # Assicuriamoci che esistano le colonne di flag
+    df_raw["Rottamazione"]     = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
+    df_raw["UserRottamazione"] = df_raw.get("UserRottamazione", "").fillna("").astype(str)
+
+    # 2) Prepara il DataFrame per la view
+    df = df_raw.reset_index().rename(columns={"index": "_orig_index"})
     for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
-        df[c] = df[c].fillna("TRANSITO").astype(str).str.replace(r"\.0$", "", regex=True)
-    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza",0), errors="coerce").fillna(0).astype(int)
-    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0), errors="coerce").fillna(0.0)
-    df["Rottamazione"]      = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
-    df["UserRottamazione"]  = df_raw.get("UserRottamazione","").fillna("").astype(str)
+        df[c] = (df[c]
+                  .fillna("TRANSITO")
+                  .astype(str)
+                  .str.replace(r"\.0$", "", regex=True))
+    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza", 0), errors="coerce").fillna(0).astype(int)
+    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo", 0), errors="coerce").fillna(0.0)
 
-    # Formatta date (solo gg/mm/aaaa)
-    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw.get("Data Ultimo Carico"), errors="coerce")
-    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw.get("Data Ultimo Consumo"), errors="coerce")
-    df["Data Ultimo Carico"]  = df["Data Ultimo Carico"].dt.strftime("%d/%m/%Y").fillna("-")
-    df["Data Ultimo Consumo"] = df["Data Ultimo Consumo"].dt.strftime("%d/%m/%Y").fillna("-")
+    # Format date (solo gg/mm/AAAA)
+    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw["Data Ultimo Carico"],  errors="coerce") \
+                                    .dt.strftime("%d/%m/%Y").fillna("-")
+    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce") \
+                                    .dt.strftime("%d/%m/%Y").fillna("-")
 
-    # Intervallo
-    df["Ultimo Consumo"] = pd.to_datetime(df_raw.get("Data Ultimo Consumo"), errors="coerce")\
-                              .apply(calcola_intervallo)
+    # Calcola intervallo
+    df["Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce") \
+                                .apply(calcola_intervallo)
 
-    # 2) Filtri
+    # 3) FILTRI
     st.markdown("### Filtri")
-    rep_sel     = st.multiselect("Filtra per Reparto",                df["CodReparto"].unique(),               default=[])
+    rep_sel     = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
     dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel     = st.multiselect("Filtra per Ubicazione",            df["Ubicazione"].unique(),               default=[])
+    ubi_sel     = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
     vals        = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
     consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
 
     dff = df.copy()
-    if rep_sel:     dff = dff[dff["CodReparto"].isin(rep_sel)]
-    if dis_sel:     dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
-    if ubi_sel:     dff = dff[dff["Ubicazione"].isin(ubi_sel)]
-    if consumo_sel:dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
+    if rep_sel:      dff = dff[dff["CodReparto"].isin(rep_sel)]
+    if dis_sel:      dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
+    if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
+    if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    # 3) Download CSV
-    st.download_button(
-        label="📥 Scarica CSV",
+    # 4) Download CSV
+    st.download_button("📥 Scarica CSV",
         data=dff.to_csv(index=False).encode("utf-8"),
         file_name="tabella_filtrata.csv",
-        mime="text/csv"
-    )
+        mime="text/csv")
 
-    # 4) AgGrid
+    # 5) AgGrid
     cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
             "Articolo","Descrizione","Giacenza","Valore Complessivo",
             "Rottamazione","UserRottamazione","Data Ultimo Carico",
             "Data Ultimo Consumo","Ultimo Consumo"]
     grid_df = dff[cols].copy()
-    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"]\
+    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"] \
         .map(lambda x: f"€ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X","."))
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
-    gb.configure_column("Rottamazione", editable=True,  cellEditor="agCheckboxCellEditor")
+    gb.configure_column("Rottamazione",     editable=True, cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione", editable=False)
-    opts = gb.build()
-
+    grid_opts = gb.build()
     resp = AgGrid(
-        grid_df, gridOptions=opts,
+        grid_df,
+        gridOptions=grid_opts,
         fit_columns_on_grid_load=True,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     )
+
     updated = resp["data"]
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # … dopo AgGrid e raccolta di `updated` …
-
+    # 6) SALVA (solo qui facciamo il rerun)
     if st.button("Salva"):
-        # Mostriamo un indicatore di lavoro
         with st.spinner("💾 Salvataggio in corso, attendere…"):
-            # 1) rileggete il raw DF da disco
-            df2 = pd.read_excel(DATA_FILE)
-            df2.columns = df2.columns.str.strip()
-            # 2) applicate solo le patch sui flag
+            df2 = df_raw.copy()
             blocked = 0
             for row in updated:
                 idx  = int(row["_orig_index"])
@@ -338,16 +336,15 @@ def mostra_dashboard(utente):
                     df2.at[idx, "UserRottamazione"] = ""
                 elif prev and prev != current_email:
                     blocked += 1
-            # 3) scrivete il file XLSX in modo sincrono
             df2.to_excel(DATA_FILE, index=False)
-        # 4) Notifica e refresh
+
         messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
-        st.rerun()
+        st.rerun()   # <— QUI facciamo il refresh _solo_ dopo il salvataggio
 
-
-    # 6) Statistiche
+    # 7) STATISTICHE
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
+
 
 # --- Logo e navigazione ---
 def interfaccia():
@@ -394,6 +391,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
