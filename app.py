@@ -9,6 +9,9 @@ import string
 import threading
 from email.message import EmailMessage
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
+from utils import calcola_intervallo, key_consumo  # Assicurati che queste funzioni siano definite
+
+
 
 # Configurazione pagina
 st.set_page_config(page_title="Sielte Rottamazione", layout="wide")
@@ -245,6 +248,7 @@ def mostra_dashboard(utente):
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
 
+
 # --- Logo e navigazione ---
 def interfaccia():
     c1, c2 = st.columns([1,5])
@@ -290,6 +294,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
