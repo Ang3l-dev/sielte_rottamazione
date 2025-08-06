@@ -52,14 +52,45 @@ def salva_utenti(users):
     with open(UTENTI_FILE, 'w') as f: json.dump(users, f, indent=4)
 
 # --- Styling ---
+# Styling CSS custom
 def stile_login():
     st.markdown("""
-    <style>
-    .stApp { background: linear-gradient(135deg,#2c3e50,#3498db); color:white; }
-    .title-center { text-align:center; color:white; font-size:2.5em; margin:1em 0; }
-    .stButton>button { background:#00bcd4; color:white; font-weight:bold; border-radius:8px; }
-    .custom-success { background:#4caf50; padding:1rem; border-radius:8px; color:white; }
-    </style>
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+        }
+        label, div[data-baseweb="radio"] * {
+            color: white !important;
+            font-weight: bold;
+        }
+        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] > p {
+            color: white !important;
+            font-weight: bold;
+        }
+        .title-center {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .stButton > button {
+            background-color: #00bcd4;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 0.5em 1.5em;
+        }
+        .custom-success {
+            background-color: #4CAF50;
+            padding: 1rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+        }
+        </style>
     """, unsafe_allow_html=True)
 
 def messaggio_successo(texto):
@@ -183,5 +214,6 @@ def main():
     else: login_page()
 
 if __name__=='__main__': main()
+
 
 
