@@ -100,40 +100,53 @@ def carica_dataframe():
     df.columns = df.columns.str.strip()
     return df
 
-# --- Background save ---
+# --- Background save (aggiornamento mirato con openpyxl) ---
+from openpyxl import load_workbook
+
+# Mappa nomi colonna -> indice (calcola una volta)
+COL_MAP = {}
+def init_col_map():
+    wb = load_workbook(DATA_FILE)
+    ws = wb.active
+    for cell in ws[1]:
+        COL_MAP[cell.value] = cell.column
+    wb.close()
+
+init_col_map()
+
 def background_save_logic(updated, df_raw, current_email):
-    df2 = df_raw.copy()
+    """
+    Aggiorna solo le celle modificate nel file Excel usando openpyxl per velocizzare.
+    """
+    wb = load_workbook(DATA_FILE)
+    ws = wb.active
     blocked = 0
     for row in updated:
-        idx  = int(row["_orig_index"])
+        idx = int(row["_orig_index"]) + 2  # +2 per header e 1-based
         newf = bool(row["Rottamazione"])
-        prev = df2.at[idx, "UserRottamazione"]
+        prev = df_raw.at[idx-2, "UserRottamazione"]
         if newf and not prev:
-            df2.at[idx, "Rottamazione"]     = True
-            df2.at[idx, "UserRottamazione"] = current_email
+            ws.cell(row=idx, column=COL_MAP.get("Rottamazione")).value = True
+            ws.cell(row=idx, column=COL_MAP.get("UserRottamazione")).value = current_email
         elif not newf and prev == current_email:
-            df2.at[idx, "Rottamazione"]     = False
-            df2.at[idx, "UserRottamazione"] = ""
+            ws.cell(row=idx, column=COL_MAP.get("Rottamazione")).value = False
+            ws.cell(row=idx, column=COL_MAP.get("UserRottamazione")).value = ""
         elif prev and prev != current_email:
             blocked += 1
-    df2.to_excel(DATA_FILE, index=False, engine="openpyxl")
+    wb.save(DATA_FILE)
+    wb.close()
     st.session_state.clear()
     st.session_state["salvataggio_bloccati"] = blocked
     st.session_state["pagina"] = "Login"
     st.rerun()
 
 def background_save(updated, df_raw, current_email):
-    def async_save():
-        try:
-            background_save_logic(updated, df_raw, current_email)
-        except Exception as e:
-            st.error(f"Errore salvataggio: {e}")
-
-    threading.Thread(target=async_save).start()
-    st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
-    st.markdown("""
-        <meta http-equiv="refresh" content="3;url=/" />
-    """, unsafe_allow_html=True)
+    """
+    Salva in background senza riscrivere l'intero file, migliorando le prestazioni.
+    """
+    threading.Thread(target=background_save_logic, args=(updated, df_raw, current_email)).start()
+    st.success("✅ Salvataggio avviato! Tornerai al login a breve.")
+    st.markdown("<meta http-equiv='refresh' content='2;url=/' />", unsafe_allow_html=True)
     st.stop()
 
 # --- Login / Registrazione / Reset Password ---
@@ -281,9 +294,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
 
