@@ -246,6 +246,14 @@ def interfaccia():
             st.markdown("🧭")
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
+        
+def pagina_transizione():
+    stile_login()
+    st.markdown("<div class='title-center'>✅ Salvataggio effettuato</div>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Eseguo il log off e verrai reindirizzato alla pagina di login...</p>", unsafe_allow_html=True)
+    st.markdown("""
+        <meta http-equiv="refresh" content="3;url=/" />
+    """, unsafe_allow_html=True)
 
 # --- Main ---
 def main():
@@ -255,14 +263,22 @@ def main():
     if "utente" not in st.session_state:
         st.session_state["utente"] = None
 
+    # Pagina intermedia di transizione
+    if st.session_state["pagina"] == "Redirect":
+        pagina_transizione()
+        return
+
+    # Cambio password forzato
     if st.session_state.get("utente_reset"):
         cambio_password_forzato()
         return
 
+    # Dashboard principale
     if st.session_state["utente"]:
         mostra_dashboard(st.session_state["utente"])
         return
 
+    # Login, registrazione, recupero password
     interfaccia()
     pagine = ["Login", "Registrazione", "Recupera Password"]
     scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
@@ -275,8 +291,10 @@ def main():
     else:
         recupera_password()
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
