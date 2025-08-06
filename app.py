@@ -322,7 +322,7 @@ def mostra_dashboard(utente):
                 blocked+=1
         df2.to_excel(DATA_FILE,index=False)
         messaggio_successo(f"✅ Modifiche salvate. Righe non modificate: {blocked}")
-        st.experimental_rerun()
+        st.rerun()
 
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -368,3 +368,4 @@ def main():
 
 if __name__=="__main__":
     main()
+
