@@ -41,6 +41,7 @@ def salva_utenti(lista):
 def load_data(path):
     df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
+    # assicuriamoci che esistano le colonne di flag
     if "Rottamazione" not in df.columns:
         df["Rottamazione"] = False
     if "UserRottamazione" not in df.columns:
@@ -92,7 +93,6 @@ def stile_login():
         }
         </style>
     """, unsafe_allow_html=True)
-
 
 def messaggio_successo(testo):
     st.markdown(f"<div class='custom-success'>✅ {testo}</div>", unsafe_allow_html=True)
@@ -212,8 +212,7 @@ def recupera_password():
         users = carica_utenti()
         u = next((x for x in users if x["email"].lower() == email.lower()), None)
         if not u:
-            st.error("⚠️ Email non trovata")
-            return
+            st.error("⚠️ Email non trovata"); return
         new_pwd = genera_password_temporanea()
         u["password"]       = new_pwd
         u["reset_required"] = True
@@ -227,8 +226,7 @@ def recupera_password():
 def calcola_intervallo(dt):
     if pd.isna(dt):
         return "Nessun Consumo"
-    oggi = pd.Timestamp.today()
-    delta = oggi - dt
+    delta = pd.Timestamp.today() - dt
     anni = delta.days // 365
     mesi = (delta.days % 365) // 30
     if anni > 1:   return f"{anni} Anni"
@@ -243,12 +241,10 @@ def key_consumo(v):
     parts = v.split()
     try:
         num = int(parts[0])
-    except ValueError:
+    except:
         num = 0
-    if "Mese" in v:
-        return (0, num)
-    if "Anno" in v:
-        return (1, num)
+    if "Mese" in v: return (0, num)
+    if "Anno" in v: return (1, num)
     return (3, num)
 
 # --- Dashboard principale ---
@@ -258,13 +254,13 @@ def mostra_dashboard(utente):
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
+    # 1) prendi i dati dalla cache o disco
     try:
         df_raw = load_data(DATA_FILE)
     except Exception as e:
-        st.error(f"Errore caricamento Excel: {e}")
-        return
+        st.error(f"Errore caricamento Excel: {e}"); return
 
-    # Preparazione DF per visualizzazione
+    # 2) prepara DF per la view
     df = df_raw.reset_index().rename(columns={"index":"_orig_index"})
     for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
         df[c] = (
@@ -275,34 +271,36 @@ def mostra_dashboard(utente):
         )
     df["Giacenza"]          = pd.to_numeric(df.get("Giacenza",0),errors="coerce").fillna(0).astype(int)
     df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0),errors="coerce").fillna(0.0)
-    df["Rottamazione"]      = df["Rottamazione"].fillna(False).astype(bool)
-    df["UserRottamazione"]  = df["UserRottamazione"].fillna("").astype(str)
-    df["Ultimo Consumo"]    = df["Data Ultimo Consumo"].apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce")))
-    df["Data Ultimo Carico"]  = df["Data Ultimo Carico"].dt.strftime('%d/%m/%Y')
-    df["Data Ultimo Consumo"] = df["Data Ultimo Consumo"].dt.strftime('%d/%m/%Y')
-    df["Ultimo Consumo"] = df["Data Ultimo Consumo"]\
-        .apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce"))
+    df["Rottamazione"]       = df["Rottamazione"].fillna(False).astype(bool)
+    df["UserRottamazione"]   = df["UserRottamazione"].fillna("").astype(str)
 
-    # Filtri
+    # parse e format delle date (senza ora)
+    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw["Data Ultimo Carico"],  errors="coerce")
+    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce")
+    df["Data Ultimo Carico"]  = df["Data Ultimo Carico"].dt.strftime("%d/%m/%Y").fillna("-")
+    df["Data Ultimo Consumo"] = df["Data Ultimo Consumo"].dt.strftime("%d/%m/%Y").fillna("-")
+
+    # calcola intervallo sempre da datetime puro
+    df["Ultimo Consumo"] = (
+        pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce")
+        .apply(calcola_intervallo)
+    )
+
+    # 3) Filtri
     st.markdown("### Filtri")
-    rep_sel     = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
-    dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel     = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
-    valori_cons = df["Ultimo Consumo"].dropna().unique().tolist()
-    valori_filtrabili = sorted(valori_cons, key=key_consumo)
-    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", valori_filtrabili, default=[])
+    rep_sel = st.multiselect("Filtra per Reparto",                df["CodReparto"].unique(), default=[])
+    dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
+    ubi_sel = st.multiselect("Filtra per Ubicazione",            df["Ubicazione"].unique(), default=[])
+    vals    = sorted(df["Ultimo Consumo"].dropna().unique().tolist(), key=key_consumo)
+    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
 
     dff = df.copy()
-    if rep_sel:
-        dff = dff[dff["CodReparto"].isin(rep_sel)]
-    if dis_sel:
-        dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
-    if ubi_sel:
-        dff = dff[dff["Ubicazione"].isin(ubi_sel)]
-    if consumo_sel:
-        dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
+    if rep_sel:    dff = dff[dff["CodReparto"].isin(rep_sel)]
+    if dis_sel:    dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
+    if ubi_sel:    dff = dff[dff["Ubicazione"].isin(ubi_sel)]
+    if consumo_sel: dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    # Download CSV
+    # 4) Download CSV
     st.download_button(
         label="📥 Scarica CSV",
         data=dff.to_csv(index=False).encode("utf-8"),
@@ -310,7 +308,7 @@ def mostra_dashboard(utente):
         mime="text/csv"
     )
 
-    # AgGrid
+    # 5) AgGrid
     cols = [
         "_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
         "Articolo","Descrizione","Giacenza","Valore Complessivo",
@@ -326,7 +324,6 @@ def mostra_dashboard(utente):
     gb.configure_column("Rottamazione",      editable=True,  cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione",  editable=False)
     opts = gb.build()
-
     resp = AgGrid(
         grid_df,
         gridOptions=opts,
@@ -334,19 +331,18 @@ def mostra_dashboard(utente):
         update_mode=GridUpdateMode.VALUE_CHANGED,
         data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     )
-
     updated = resp["data"]
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # Salva modifiche (patch-only + invalidate cache)
+    # 6) Salvataggio patch-only + invalidate cache
     if st.button("Salva"):
-        df2   = load_data(DATA_FILE).copy()
+        df2 = load_data(DATA_FILE).copy()
         blocked = 0
         for row in updated:
-            idx   = int(row["_orig_index"])
-            newf  = bool(row["Rottamazione"])
-            prev  = df2.at[idx, "UserRottamazione"]
+            idx  = int(row["_orig_index"])
+            newf = bool(row["Rottamazione"])
+            prev = df2.at[idx, "UserRottamazione"]
             if newf and not prev:
                 df2.at[idx, "Rottamazione"]     = True
                 df2.at[idx, "UserRottamazione"] = current_email
@@ -360,27 +356,26 @@ def mostra_dashboard(utente):
         messaggio_successo(f"✅ Salvate. Righe non modificate (permessi): {blocked}")
         return
 
-    # Statistiche
+    # 7) Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
 
-# --- Interfaccia logo ---
+# --- Interfaccia logo e main navigation ---
 def interfaccia():
     c1, c2 = st.columns([1,5])
     with c1:
         try:
             st.image(
-                "https://www.confindustriaemilia.it/flex/AppData/Redational/"
-                "ElencoAssociati/0.11906600%201536649262/"
-                "e037179fa82dad8532a1077ee51a4613.png",
-                width=180
+              "https://www.confindustriaemilia.it/flex/AppData/Redational/"
+              "ElencoAssociati/0.11906600%201536649262/"
+              "e037179fa82dad8532a1077ee51a4613.png",
+              width=180
             )
         except:
             st.markdown("🧭")
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
 
-# --- Main ---
 def main():
     stile_login()
     if "pagina" not in st.session_state:
@@ -408,8 +403,7 @@ def main():
     else:
         recupera_password()
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
-
 
 
