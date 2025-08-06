@@ -212,18 +212,30 @@ def mostra_dashboard(utente):
 
     updated = resp["data"] if not isinstance(resp["data"], pd.DataFrame) else resp["data"].to_dict("records")
 
-    # Salvataggio in due fasi con messaggio immediato
-    if "salvataggio_in_corso" not in st.session_state:
-        st.session_state["salvataggio_in_corso"] = False
-
-    if st.session_state["salvataggio_in_corso"]:
-        st.info("⏳ Attendere: salvataggio in corso...")
-        background_save(updated, df_raw, current_email)
-        return
-
+        # SALVA: esecuzione sincrona con spinner e redirect
     if st.button("Salva"):
-        st.session_state["salvataggio_in_corso"] = True
-        st.rerun()
+        with st.spinner("⏳ Attendere: salvataggio in corso..."):
+            # Logica di salvataggio sincrona
+            df2 = df_raw.copy()
+            blocked = 0
+            for row in updated:
+                idx = int(row["_orig_index"])
+                newf = bool(row["Rottamazione"])
+                prev = df2.at[idx, "UserRottamazione"]
+                if newf and not prev:
+                    df2.at[idx, "Rottamazione"] = True
+                    df2.at[idx, "UserRottamazione"] = current_email
+                elif not newf and prev == current_email:
+                    df2.at[idx, "Rottamazione"] = False
+                    df2.at[idx, "UserRottamazione"] = ""
+                elif prev and prev != current_email:
+                    blocked += 1
+            # Salva su file
+            df2.to_excel(DATA_FILE, index=False, engine="openpyxl")
+        messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
+        # Redirect al login dopo 2s
+        st.markdown("<meta http-equiv='refresh' content='2;url=/' />", unsafe_allow_html=True)
+        return
 
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -253,7 +265,6 @@ def main():
     else:recupera_password()
 
 if __name__=="__main__":main()
-
 
 
 
