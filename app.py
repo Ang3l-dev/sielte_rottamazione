@@ -128,84 +128,12 @@ def carica_reparti_da_excel():
 def background_save(df_to_save):
     df_to_save.to_parquet(DATA_FILE, index=False, engine="pyarrow")
 
+# --- Caricamento dati generale ---
+def carica_dataframe():
+    df = pd.read_parquet(DATA_FILE)
+    df.columns = df.columns.str.strip()
+    return df
 
-def registrazione():
-    st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
-    nome    = st.text_input("Nome")
-    cognome = st.text_input("Cognome")
-    email   = st.text_input("Email")
-    pwd     = st.text_input("Password", type="password")
-    pwd2    = st.text_input("Conferma Password", type="password")
-    st.caption("🔐 Min 6 caratteri, un numero e un simbolo.")
-    reps = carica_reparti_da_excel()
-    sel  = st.multiselect("Reparti abilitati", reps)
-    if st.button("Registra"):
-        errs = []
-        if not nome.strip():    errs.append("Nome mancante")
-        if not cognome.strip(): errs.append("Cognome mancante")
-        if not email.strip():   errs.append("Email mancante")
-        if pwd != pwd2:         errs.append("Password non corrispondono")
-        if len(pwd)<6 or not re.search(r"\d",pwd) or not re.search(r"[^\w\s]",pwd):
-            errs.append("Password non conforme")
-        if not sel:             errs.append("Seleziona almeno un reparto")
-        users = carica_utenti()
-        if any(u["email"].lower()==email.lower() for u in users):
-            errs.append("⚠️ Email già registrata")
-        if errs:
-            for e in errs: st.error(f"❌ {e}")
-            return
-        nuovo = {
-            "nome": nome, "cognome": cognome, "email": email,
-            "password": pwd, "ruolo": "User",
-            "reparti": sel,  "reset_required": False
-        }
-        users.append(nuovo)
-        salva_utenti(users)
-        st.success("✅ Registrazione avvenuta. Effettua il login.")
-        st.session_state["pagina"] = "Login"
-        st.rerun()
-
-def recupera_password():
-    st.markdown('<div class="title-center">Recupera Password</div>', unsafe_allow_html=True)
-    email = st.text_input("Inserisci email per reset")
-    if st.button("Invia nuova password"):
-        users = carica_utenti()
-        u = next((x for x in users if x["email"].lower()==email.lower()), None)
-        if not u:
-            st.error("⚠️ Email non trovata"); return
-        new_pwd = genera_password_temporanea()
-        u["password"]       = new_pwd
-        u["reset_required"] = True
-        salva_utenti(users)
-        if invia_email_nuova_password(email, new_pwd):
-            st.success("✅ Mail inviata. Controlla la posta.")
-        else:
-            st.error("❌ Errore invio email")
-
-# --- Helper intervallo & ordinamento ---
-def calcola_intervallo(dt):
-    if pd.isna(dt):
-        return "Nessun Consumo"
-    delta = pd.Timestamp.today() - dt
-    anni  = delta.days // 365
-    mesi  = (delta.days % 365) // 30
-    if anni > 1:  return f"{anni} Anni"
-    if anni == 1: return "1 Anno"
-    if mesi > 1:  return f"{mesi} Mesi"
-    if mesi == 1: return "1 Mese"
-    return "Oggi"
-
-def key_consumo(v):
-    if v.startswith("Nessun"): return (2,0)
-    parts = v.split()
-    num = int(parts[0]) if parts and parts[0].isdigit() else 0
-    if "Mese" in v: return (0,num)
-    if "Anno" in v: return (1,num)
-    return (3,num)
-
-# --- Background save ---
-def background_save(df_to_save):
-    df_to_save.to_excel(DATA_FILE, index=False)
 
 # --- Dashboard principale ---
 def mostra_dashboard(utente):
@@ -363,6 +291,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
