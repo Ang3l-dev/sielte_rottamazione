@@ -250,7 +250,7 @@ def mostra_dashboard(utente):
 def interfaccia():
     col1,col2=st.columns([1,5])
     with col1:
-        try: st.image("https://www.google.com/url?sa=i&url=https%3A%2F%2Fwww.confindustriaemilia.it%2Fflex%2FFixedPages%2FCommon%2Fassociati.php%2FL%2FIT%2Fid%2Fff6e5094-9cda-e711-80ea-1458d0431690&psig=AOvVaw06JeHm0c8lW2ca2Qlqa9Cd&ust=1754576603726000&source=images&opi=89978449",width=180)
+        try: st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png",width=180)
         except: st.markdown("🧭")
     with col2:
         st.markdown('<div class="title-center">Login</div>',unsafe_allow_html=True)
@@ -274,6 +274,7 @@ def main():
     elif pag=='Recupera Password': recupera_password()
 
 if __name__=='__main__': main()
+
 
 
 
