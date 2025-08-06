@@ -118,16 +118,16 @@ def background_save_logic(updated, df_raw, current_email):
         elif prev and prev != current_email:
             blocked += 1
     df2.to_excel(DATA_FILE, index=False, engine="openpyxl")
-    st.session_state.clear()
-    st.session_state["salvataggio_bloccati"] = blocked
-    st.session_state["pagina"] = "Login"
-    st.rerun()
+    # NON fare clear o rerun qui!
+    return blocked
+
 
 def background_save(updated, df_raw, current_email):
     try:
-        background_save_logic(updated, df_raw, current_email)
-        st.session_state.clear()
+        blocked = background_save_logic(updated, df_raw, current_email)
+        st.session_state["salvataggio_bloccati"] = blocked
         st.session_state["pagina"] = "Redirect"
+        st.session_state["utente"] = None  # Logoff
         st.rerun()
     except Exception as e:
         st.error(f"Errore durante il salvataggio: {e}")
@@ -294,6 +294,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
