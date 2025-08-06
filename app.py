@@ -244,6 +244,29 @@ def cambio_password_forzato():
         st.session_state["pagina"] = "Login"
         st.session_state["utente_reset"] = None
         st.rerun()
+def calcola_intervallo(dt):
+    if pd.isna(dt) or str(dt).strip() == '-':
+        return "Nessun Consumo"
+    oggi = pd.Timestamp.today()
+    delta = oggi - dt
+    anni = delta.days // 365
+    mesi = (delta.days % 365) // 30
+    giorni = (delta.days % 365) % 30
+
+    if anni >= 2:
+        return f"{anni} Anni"
+    elif anni == 1:
+        return "1 Anno"
+    elif mesi >= 2:
+        return f"{mesi} Mesi"
+    elif mesi == 1:
+        return "1 Mese"
+    elif giorni > 1:
+        return f"{giorni} Giorni"
+    elif giorni == 1:
+        return "1 Giorno"
+    else:
+        return "Oggi"
 
 
 
@@ -262,89 +285,60 @@ def mostra_dashboard(utente):
 
     df.columns = df.columns.str.strip()
     df = df.reset_index().rename(columns={'index': '_orig_index'})
-    for c in ['Dislocazione Territoriale', 'CodReparto', 'Ubicazione', 'Articolo', 'Descrizione']:
+
+    for c in ['Dislocazione Territoriale','CodReparto','Ubicazione','Articolo','Descrizione']:
         df[c] = df.get(c, 'TRANSITO').fillna('TRANSITO').astype(str).str.replace(r"\.0$", "", regex=True)
 
     df['Giacenza'] = pd.to_numeric(df.get('Giacenza', 0), errors='coerce').fillna(0).astype(int)
     df['Valore Complessivo'] = pd.to_numeric(df.get('Valore Complessivo', 0), errors='coerce').fillna(0.0)
     df['Rottamazione'] = df.get('Rottamazione', False).fillna(False).astype(bool)
     df['UserRottamazione'] = df.get('UserRottamazione', '').fillna('').astype(str)
+
     df['Data Ultimo Carico'] = pd.to_datetime(df.get('Data Ultimo Carico', pd.NaT), errors='coerce')
     df['Data Ultimo Consumo'] = pd.to_datetime(df.get('Data Ultimo Consumo', pd.NaT), errors='coerce')
-
-    # Calcolo intervallo da ultimo consumo
-    def calcola_intervallo(dt):
-        if pd.isna(dt):
-            return "Nessun Consumo"
-        oggi = pd.Timestamp.today()
-        delta = oggi - dt
-        anni = delta.days // 365
-        mesi = (delta.days % 365) // 30
-        giorni = (delta.days % 365) % 30
-
-        if anni >= 2:
-            return f"{anni} Anni"
-        elif anni == 1:
-            return "1 Anno"
-        elif mesi >= 2:
-            return f"{mesi} Mesi"
-        elif mesi == 1:
-            return "1 Mese"
-        elif giorni > 1:
-            return f"{giorni} Giorni"
-        elif giorni == 1:
-            return "1 Giorno"
-        else:
-            return "Oggi"
-
     df['Ultimo Consumo'] = df['Data Ultimo Consumo'].apply(calcola_intervallo)
 
+    # --- FILTRI ---
     st.markdown('### Filtri')
-    rep_sel = st.multiselect('Filtra per Reparto', df['CodReparto'].unique().tolist(), default=[])
-    dis_sel = st.multiselect('Filtra per Dislocazione Territoriale', df['Dislocazione Territoriale'].unique().tolist(), default=[])
-    ubi_sel = st.multiselect('Filtra per Ubicazione', df['Ubicazione'].unique().tolist(), default=[])
+    rep_sel = st.multiselect('Filtra per Reparto', df['CodReparto'].unique().tolist())
+    dis_sel = st.multiselect('Filtra per Dislocazione Territoriale', df['Dislocazione Territoriale'].unique().tolist())
+    ubi_sel = st.multiselect('Filtra per Ubicazione', df['Ubicazione'].unique().tolist())
+    consumo_sel = st.multiselect('Filtra per Ultimo Consumo', df['Ultimo Consumo'].unique().tolist())
+
     dff = df.copy()
     if rep_sel: dff = dff[dff['CodReparto'].isin(rep_sel)]
     if dis_sel: dff = dff[dff['Dislocazione Territoriale'].isin(dis_sel)]
     if ubi_sel: dff = dff[dff['Ubicazione'].isin(ubi_sel)]
+    if consumo_sel: dff = dff[dff['Ultimo Consumo'].isin(consumo_sel)]
 
-    # Download CSV
-    csv = dff.to_csv(index=False).encode('utf-8')
-    st.download_button(label="📥 Scarica CSV", data=csv, file_name="tabella_filtrata.csv", mime="text/csv", key="download._csv")
+    st.download_button("📥 Scarica CSV", dff.to_csv(index=False).encode("utf-8"), file_name="tabella_filtrata.csv")
 
-    cols = ['_orig_index', 'Dislocazione Territoriale', 'CodReparto', 'Ubicazione',
-            'Articolo', 'Descrizione', 'Giacenza', 'Valore Complessivo', 'Rottamazione', 'UserRottamazione', 'Ultimo Consumo']
-    grid_df = dff[cols].copy().loc[:, ~dff[cols].columns.duplicated()]
-    grid_df['Giacenza'] = grid_df['Giacenza'].astype(str)
-    grid_df['Valore Complessivo'] = grid_df['Valore Complessivo'].map(lambda x: f"€ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
-
-    st.markdown("""
-    <script>
-        window.onbeforeunload = function() {
-            return "Attenzione stai uscendo senza salvare, proseguire?";
-        };
-    </script>
-    """, unsafe_allow_html=True)
+    cols = ['_orig_index','Dislocazione Territoriale','CodReparto','Ubicazione','Articolo',
+            'Descrizione','Giacenza','Valore Complessivo','Rottamazione','UserRottamazione',
+            'Data Ultimo Carico','Data Ultimo Consumo','Ultimo Consumo']
+    
+    grid_df = dff[cols].copy()
+    grid_df['Valore Complessivo'] = grid_df['Valore Complessivo'].map(lambda x: f"€ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X','.'))
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column('_orig_index', hide=True)
-    gb.configure_column('Rottamazione', editable=True, cellEditor='agCheckboxCellEditor', cellRenderer='agCheckboxCellRenderer')
+    gb.configure_column('Rottamazione', editable=True, cellEditor='agCheckboxCellEditor')
     gb.configure_column('UserRottamazione', editable=False)
     grid_opts = gb.build()
 
-    response = AgGrid(grid_df, gridOptions=grid_opts, width='100%', fit_columns_on_grid_load=True,
+    response = AgGrid(grid_df, gridOptions=grid_opts, fit_columns_on_grid_load=True,
                       update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
 
-    raw = response.get('data')
-    updated = raw.to_dict(orient='records') if isinstance(raw, pd.DataFrame) else (raw or [])
+    updated = response['data'].to_dict('records') if isinstance(response['data'], pd.DataFrame) else []
 
     if st.button('Salva'):
         df2 = pd.read_excel(DATA_FILE)
         df2.columns = df2.columns.str.strip()
-        for c in ['CodReparto', 'Dislocazione Territoriale', 'Ubicazione']:
+        for c in ['CodReparto','Dislocazione Territoriale','Ubicazione']:
             df2[c] = df2[c].astype(str).str.replace(r"\.0$", "", regex=True)
         df2['Rottamazione'] = df2.get('Rottamazione', False).fillna(False).astype(bool)
         df2['UserRottamazione'] = df2.get('UserRottamazione', '').fillna('').astype(str)
+        modifiche_bloccate = 0
         for row in updated:
             idx = int(row['_orig_index'])
             new_flag = bool(row['Rottamazione'])
@@ -355,14 +349,15 @@ def mostra_dashboard(utente):
             elif not new_flag and prev_user == current_email:
                 df2.at[idx, 'Rottamazione'] = False
                 df2.at[idx, 'UserRottamazione'] = ''
+            elif prev_user and prev_user != current_email:
+                modifiche_bloccate += 1
         df2.to_excel(DATA_FILE, index=False)
         st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
-        messaggio_successo('✅ Modifiche salvate con successo.')
+        messaggio_successo(f'✅ Modifiche salvate. Righe non modificate per permessi: {modifiche_bloccate}')
         st.rerun()
 
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
-
 
 
 
@@ -419,6 +414,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
