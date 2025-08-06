@@ -298,8 +298,8 @@ def key_consumo(v):
 
 # e poi riempi la lista ordinata così:
 
-valori_consumo = df["Ultimo Consumo"].dropna().unique().tolist()
-valori_filtrabili = sorted(valori_consumo, key=key_consumo)
+    valori_consumo = df["Ultimo Consumo"].dropna().unique().tolist()
+    valori_filtrabili = sorted(valori_consumo, key=key_consumo)
 
 
     dff = df.copy()
@@ -408,6 +408,7 @@ def main():
 
 if __name__=="__main__":
     main()
+
 
 
 
