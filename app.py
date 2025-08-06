@@ -163,40 +163,67 @@ def mostra_dashboard(utente):
     stile_login()
     st.markdown(f"<div class='title-center'>Benvenuto, {utente['nome']}!</div>", unsafe_allow_html=True)
     st.write(f"Ruolo: **{utente['ruolo']}**")
-    current_email=utente["email"]
+    current_email = utente["email"]
+
+    # Carica dati preprocessati da cache
     df_raw, df = load_and_prepare_data()
+
     # Filtri
     st.markdown("### Filtri")
-    rep_sel=st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
-    dis_sel=st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel=st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
-    vals=sorted(df["Ultimo Consumo"].unique(), key=key_consumo)
-    consumo_sel=st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
-    dff=df.copy()
-    if rep_sel: dff=dff[dff["CodReparto"].isin(rep_sel)]
-    if dis_sel: dff=dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
-    if ubi_sel: dff=dff[dff["Ubicazione"].isin(ubi_sel)]
-    if consumo_sel: dff=dff[dff["Ultimo Consumo"].isin(consumo_sel)]
-    st.download_button("📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), mime="text/csv")
+    rep_sel     = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
+    dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
+    ubi_sel     = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
+    vals        = sorted(df["Ultimo Consumo"].unique(), key=key_consumo)
+    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
+
+    dff = df.copy()
+    if rep_sel:      dff = dff[dff["CodReparto"].isin(rep_sel)]
+    if dis_sel:      dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
+    if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
+    if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
+
+    # Download CSV
+    st.download_button(
+        "📥 Scarica CSV",
+        data=dff.to_csv(index=False).encode("utf-8"),
+        mime="text/csv"
+    )
+
     # AgGrid
-    cols=["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione","Giacenza","Valore Complessivo","Rottamazione","UserRottamazione","Data Ultimo Carico","Data Ultimo Consumo","Ultimo Consumo"]
-    grid_df=dff[cols].copy()
-    grid_df["Valore Complessivo"]=grid_df["Valore Complessivo"].map(lambda x:f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X","."))
-    gb=GridOptionsBuilder.from_dataframe(grid_df)
-    gb.configure_column("_orig_index",hide=True)
-    gb.configure_column("Rottamazione",editable=True,cellEditor="agCheckboxCellEditor")
-    gb.configure_column("UserRottamazione",editable=False)
-    resp=AgGrid(grid_df,gridOptions=gb.build(),fit_columns_on_grid_load=True,update_mode=GridUpdateMode.MODEL_CHANGED,data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
-    updated=resp["data"] if not isinstance(resp["data"],pd.DataFrame) else resp["data"].to_dict("records")
-        # Salva con messaggio di attesa subito
+    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
+            "Articolo","Descrizione","Giacenza","Valore Complessivo",
+            "Rottamazione","UserRottamazione","Data Ultimo Carico",
+            "Data Ultimo Consumo","Ultimo Consumo"]
+    grid_df = dff[cols].copy()
+    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(
+        lambda x: f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+    )
+    gb = GridOptionsBuilder.from_dataframe(grid_df)
+    gb.configure_column("_orig_index", hide=True)
+    gb.configure_column("Rottamazione", editable=True, cellEditor="agCheckboxCellEditor")
+    gb.configure_column("UserRottamazione", editable=False)
+    resp = AgGrid(
+        grid_df,
+        gridOptions=gb.build(),
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.MODEL_CHANGED,
+        data_return_mode=DataReturnMode.FILTERED_AND_SORTED
+    )
+
+    updated = resp["data"] if not isinstance(resp["data"], pd.DataFrame) else resp["data"].to_dict("records")
+
+    # Salvataggio in due fasi con messaggio immediato
     if "salvataggio_in_corso" not in st.session_state:
         st.session_state["salvataggio_in_corso"] = False
 
     if st.session_state["salvataggio_in_corso"]:
         st.info("⏳ Attendere: salvataggio in corso...")
         background_save(updated, df_raw, current_email)
-    elif st.button("Salva"):
+        return
+
+    if st.button("Salva"):
         st.session_state["salvataggio_in_corso"] = True
+        st.experimental_rerun()
 
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -226,4 +253,5 @@ def main():
     else:recupera_password()
 
 if __name__=="__main__":main()
+
 
