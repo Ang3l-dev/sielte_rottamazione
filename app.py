@@ -39,14 +39,47 @@ def salva_utenti(lista):
 # --- Stile CSS ---
 def stile_login():
     st.markdown("""
-    <style>
-      .stApp { background: linear-gradient(135deg,#2c3e50,#3498db); color:white; }
-      label,div[data-baseweb="radio"] * { color:white!important; font-weight:bold;}
-      .title-center { text-align:center; color:white; font-size:2.5em; margin:1em 0; }
-      .stButton>button { background-color:#00bcd4;color:white;font-weight:bold;border-radius:8px;padding:0.5em 1.5em; }
-      .custom-success { background-color:#4CAF50;padding:1rem;border-radius:8px;color:white;font-weight:bold; }
-      [data-testid="stDownloadButton"] button { color:black!important; font-weight:bold; }
-    </style>
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+        }
+        label, div[data-baseweb="radio"] * {
+            color: white !important;
+            font-weight: bold;
+        }
+        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] > p {
+            color: white !important;
+            font-weight: bold;
+        }
+        .title-center {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .stButton > button {
+            background-color: #00bcd4;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 0.5em 1.5em;
+        }
+        .custom-success {
+            background-color: #4CAF50;
+            padding: 1rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+        }
+                /* Cambia solo il colore del testo del pulsante Scarica CSV */
+        [data-testid="stDownloadButton"] button {
+            color: black !important;
+            font-weight: bold;
+        }
+        </style>
     """, unsafe_allow_html=True)
 
 def messaggio_successo(testo):
@@ -335,5 +368,3 @@ def main():
 
 if __name__=="__main__":
     main()
-
-
