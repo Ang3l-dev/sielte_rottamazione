@@ -124,18 +124,13 @@ def background_save_logic(updated, df_raw, current_email):
     st.rerun()
 
 def background_save(updated, df_raw, current_email):
-    with st.spinner("💾 Salvataggio in corso, attendere..."):
-        try:
-            background_save_logic(updated, df_raw, current_email)
-            st.success("✅ Salvataggio effettuato con successo. Verrai reindirizzato alla pagina di login tra pochi secondi.")
-            st.markdown("""
-                <meta http-equiv="refresh" content="3;url=/" />
-            """, unsafe_allow_html=True)
-            st.stop()
-        except Exception as e:
-            st.error(f"Errore durante il salvataggio: {e}")
-
-
+    try:
+        background_save_logic(updated, df_raw, current_email)
+        st.session_state.clear()
+        st.session_state["pagina"] = "Redirect"
+        st.rerun()
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio: {e}")
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -282,6 +277,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
