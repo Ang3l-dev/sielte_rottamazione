@@ -6,6 +6,7 @@ import pandas as pd
 import smtplib
 import random
 import string
+import threading
 from email.message import EmailMessage
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 
@@ -34,6 +35,7 @@ def carica_utenti():
 def salva_utenti(users):
     with open(UTENTI_FILE, "w") as f:
         json.dump(users, f, indent=4)
+
 # --- Stile CSS ---
 def stile_login():
     st.markdown("""
@@ -80,11 +82,10 @@ def stile_login():
         </style>
     """, unsafe_allow_html=True)
 
+def messaggio_successo(testo):
+    st.markdown(f"<div class='custom-success'>✅ {testo}</div>", unsafe_allow_html=True)
 
-def messaggio_successo(text):
-    st.markdown(f"<div class='custom-success'>✅ {text}</div>", unsafe_allow_html=True)
-
-# --- Password reset helpers ---
+# --- Password Reset Utilities ---
 def genera_password_temporanea(n=10):
     chars = string.ascii_letters + string.digits + "!@#$%^&*"
     return "".join(random.choices(chars, k=n))
@@ -105,7 +106,7 @@ def invia_email_nuova_password(dest, pwd):
         st.error(f"Errore invio email: {e}")
         return False
 
-# --- Login / reset forzato ---
+# --- Login / Registrazione / Reset Password ---
 def login():
     st.subheader("Login")
     email = st.text_input("Email")
@@ -129,8 +130,8 @@ def cambio_password_forzato():
     u = st.session_state.get("utente_reset")
     st.subheader("Cambio Password")
     temp = st.text_input("Password temporanea", type="password")
-    new1 = st.text_input("Nuova password",      type="password")
-    new2 = st.text_input("Conferma nuova pwd",  type="password")
+    new1 = st.text_input("Nuova password", type="password")
+    new2 = st.text_input("Conferma nuova password", type="password")
     if st.button("Cambia password"):
         if temp != u["password"]:
             st.error("Password temporanea non corretta")
@@ -140,7 +141,7 @@ def cambio_password_forzato():
             users = carica_utenti()
             for x in users:
                 if x["email"].lower() == u["email"].lower():
-                    x["password"] = new1
+                    x["password"]       = new1
                     x["reset_required"] = False
             salva_utenti(users)
             messaggio_successo("Password aggiornata. Effettua login.")
@@ -148,7 +149,6 @@ def cambio_password_forzato():
             st.session_state.pop("utente_reset")
             st.rerun()
 
-# --- Caricamento reparti (per registrazione) ---
 def carica_reparti_da_excel():
     try:
         df0 = pd.read_excel(DATA_FILE)
@@ -157,21 +157,21 @@ def carica_reparti_da_excel():
     except:
         return []
 
-# --- Registrazione / recupero pwd ---
 def registrazione():
     st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
     nome    = st.text_input("Nome")
     cognome = st.text_input("Cognome")
     email   = st.text_input("Email")
-    pwd     = st.text_input("Password",            type="password")
-    pwd2    = st.text_input("Conferma Password",   type="password")
-    st.caption("🔐 Min 6 char, un numero e un simbolo.")
+    pwd     = st.text_input("Password", type="password")
+    pwd2    = st.text_input("Conferma Password", type="password")
+    st.caption("🔐 Min 6 caratteri, un numero e un simbolo.")
     reps = carica_reparti_da_excel()
     sel  = st.multiselect("Reparti abilitati", reps)
     if st.button("Registra"):
         errs = []
         if not nome.strip():    errs.append("Nome mancante")
         if not cognome.strip(): errs.append("Cognome mancante")
+        if not email.strip():   errs.append("Email mancante")
         if pwd != pwd2:         errs.append("Password non corrispondono")
         if len(pwd)<6 or not re.search(r"\d",pwd) or not re.search(r"[^\w\s]",pwd):
             errs.append("Password non conforme")
@@ -200,8 +200,7 @@ def recupera_password():
         users = carica_utenti()
         u = next((x for x in users if x["email"].lower()==email.lower()), None)
         if not u:
-            st.error("⚠️ Email non trovata")
-            return
+            st.error("⚠️ Email non trovata"); return
         new_pwd = genera_password_temporanea()
         u["password"]       = new_pwd
         u["reset_required"] = True
@@ -218,19 +217,23 @@ def calcola_intervallo(dt):
     delta = pd.Timestamp.today() - dt
     anni  = delta.days // 365
     mesi  = (delta.days % 365) // 30
-    if anni>1:  return f"{anni} Anni"
-    if anni==1: return "1 Anno"
-    if mesi>1:  return f"{mesi} Mesi"
-    if mesi==1: return "1 Mese"
+    if anni > 1:  return f"{anni} Anni"
+    if anni == 1: return "1 Anno"
+    if mesi > 1:  return f"{mesi} Mesi"
+    if mesi == 1: return "1 Mese"
     return "Oggi"
 
 def key_consumo(v):
     if v.startswith("Nessun"): return (2,0)
-    parts=v.split()
+    parts = v.split()
     num = int(parts[0]) if parts and parts[0].isdigit() else 0
     if "Mese" in v: return (0,num)
     if "Anno" in v: return (1,num)
     return (3,num)
+
+# --- Background save ---
+def background_save(df_to_save):
+    df_to_save.to_excel(DATA_FILE, index=False)
 
 # --- Dashboard principale ---
 def mostra_dashboard(utente):
@@ -239,40 +242,40 @@ def mostra_dashboard(utente):
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
-    # 1) leggi da disco una sola volta
+    # 1) Leggi tutto una sola volta
     try:
         df_raw = pd.read_excel(DATA_FILE)
     except Exception as e:
         st.error(f"Errore caricamento Excel: {e}")
         return
     df_raw.columns = df_raw.columns.str.strip()
-    # assicurati flags
-    df_raw["Rottamazione"]     = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
-    df_raw["UserRottamazione"] = df_raw.get("UserRottamazione","").fillna("").astype(str)
 
-    # 2) prepara DF per view
+    # Prepara DF per view
     df = df_raw.reset_index().rename(columns={"index":"_orig_index"})
     for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
-        df[c] = (df[c].fillna("TRANSITO").astype(str)
-                     .str.replace(r"\.0$","",regex=True))
-    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza",0),errors="coerce").fillna(0).astype(int)
-    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0),errors="coerce").fillna(0.0)
-    # format date columns
-    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw["Data Ultimo Carico"], errors="coerce")\
-                                .dt.strftime("%d/%m/%Y").fillna("-")
-    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce")\
-                                .dt.strftime("%d/%m/%Y").fillna("-")
-    # calcola intervallo
-    df["Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce")\
-                               .apply(calcola_intervallo)
+        df[c] = df[c].fillna("TRANSITO").astype(str).str.replace(r"\.0$", "", regex=True)
+    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza",0), errors="coerce").fillna(0).astype(int)
+    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0), errors="coerce").fillna(0.0)
+    df["Rottamazione"]      = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
+    df["UserRottamazione"]  = df_raw.get("UserRottamazione","").fillna("").astype(str)
 
-    # 3) Filtri
+    # Formatta date (solo gg/mm/aaaa)
+    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw.get("Data Ultimo Carico"), errors="coerce")
+    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw.get("Data Ultimo Consumo"), errors="coerce")
+    df["Data Ultimo Carico"]  = df["Data Ultimo Carico"].dt.strftime("%d/%m/%Y").fillna("-")
+    df["Data Ultimo Consumo"] = df["Data Ultimo Consumo"].dt.strftime("%d/%m/%Y").fillna("-")
+
+    # Intervallo
+    df["Ultimo Consumo"] = pd.to_datetime(df_raw.get("Data Ultimo Consumo"), errors="coerce")\
+                              .apply(calcola_intervallo)
+
+    # 2) Filtri
     st.markdown("### Filtri")
-    rep_sel      = st.multiselect("Filtra per Reparto",                df["CodReparto"].unique(),               default=[])
-    dis_sel      = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel      = st.multiselect("Filtra per Ubicazione",            df["Ubicazione"].unique(),               default=[])
-    vals         = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
-    consumo_sel  = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
+    rep_sel     = st.multiselect("Filtra per Reparto",                df["CodReparto"].unique(),               default=[])
+    dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
+    ubi_sel     = st.multiselect("Filtra per Ubicazione",            df["Ubicazione"].unique(),               default=[])
+    vals        = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
+    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
 
     dff = df.copy()
     if rep_sel:     dff = dff[dff["CodReparto"].isin(rep_sel)]
@@ -280,14 +283,15 @@ def mostra_dashboard(utente):
     if ubi_sel:     dff = dff[dff["Ubicazione"].isin(ubi_sel)]
     if consumo_sel:dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    # 4) Download CSV
-    st.download_button("📥 Scarica CSV",
+    # 3) Download CSV
+    st.download_button(
+        label="📥 Scarica CSV",
         data=dff.to_csv(index=False).encode("utf-8"),
         file_name="tabella_filtrata.csv",
         mime="text/csv"
     )
 
-    # 5) AgGrid
+    # 4) AgGrid
     cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
             "Articolo","Descrizione","Giacenza","Valore Complessivo",
             "Rottamazione","UserRottamazione","Data Ultimo Carico",
@@ -298,12 +302,12 @@ def mostra_dashboard(utente):
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
-    gb.configure_column("Rottamazione",     editable=True, cellEditor="agCheckboxCellEditor")
+    gb.configure_column("Rottamazione", editable=True,  cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione", editable=False)
-    grid_opts = gb.build()
+    opts = gb.build()
 
     resp = AgGrid(
-        grid_df, gridOptions=grid_opts,
+        grid_df, gridOptions=opts,
         fit_columns_on_grid_load=True,
         update_mode=GridUpdateMode.VALUE_CHANGED,
         data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
@@ -312,28 +316,29 @@ def mostra_dashboard(utente):
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # 6) Salvataggio patch‐only + spinner
+    # 5) Salvataggio in background
     if st.button("Salva"):
-        with st.spinner("💾 Salvataggio in corso, attendere…"):
-            df2 = df_raw.copy()
-            blocked = 0
-            for row in updated:
-                idx  = int(row["_orig_index"])
-                newf = bool(row["Rottamazione"])
-                prev = df2.at[idx, "UserRottamazione"]
-                if newf and not prev:
-                    df2.at[idx, "Rottamazione"]     = True
-                    df2.at[idx, "UserRottamazione"] = current_email
-                elif not newf and prev == current_email:
-                    df2.at[idx, "Rottamazione"]     = False
-                    df2.at[idx, "UserRottamazione"] = ""
-                elif prev and prev != current_email:
-                    blocked += 1
-            df2.to_excel(DATA_FILE, index=False)
-        messaggio_successo(f"✅ Salvate. Righe non modificate (permessi): {blocked}")
-        st.rerun()
+        # prepara patch-only
+        df2 = df_raw.copy()
+        blocked = 0
+        for row in updated:
+            idx  = int(row["_orig_index"])
+            newf = bool(row["Rottamazione"])
+            prev = df2.at[idx, "UserRottamazione"]
+            if newf and not prev:
+                df2.at[idx, "Rottamazione"]     = True
+                df2.at[idx, "UserRottamazione"] = current_email
+            elif not newf and prev == current_email:
+                df2.at[idx, "Rottamazione"]     = False
+                df2.at[idx, "UserRottamazione"] = ""
+            elif prev and prev != current_email:
+                blocked += 1
 
-    # 7) Statistiche
+        # avvia thread per scrittura
+        threading.Thread(target=background_save, args=(df2,), daemon=True).start()
+        st.success(f"✅ Salvataggio avviato! Righe bloccate da permessi: {blocked}")
+
+    # 6) Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
 
@@ -342,7 +347,12 @@ def interfaccia():
     c1, c2 = st.columns([1,5])
     with c1:
         try:
-            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=180)
+            st.image(
+              "https://www.confindustriaemilia.it/flex/AppData/Redational/"
+              "ElencoAssociati/0.11906600%201536649262/"
+              "e037179fa82dad8532a1077ee51a4613.png",
+              width=180
+            )
         except:
             st.markdown("🧭")
     with c2:
@@ -350,16 +360,21 @@ def interfaccia():
 
 def main():
     stile_login()
-    if "pagina" not in st.session_state: st.session_state["pagina"] = "Login"
-    if "utente" not in st.session_state: st.session_state["utente"] = None
+    if "pagina" not in st.session_state:
+        st.session_state["pagina"] = "Login"
+    if "utente" not in st.session_state:
+        st.session_state["utente"] = None
 
     if st.session_state.get("utente_reset"):
-        cambio_password_forzato(); return
+        cambio_password_forzato()
+        return
+
     if st.session_state["utente"]:
-        mostra_dashboard(st.session_state["utente"]); return
+        mostra_dashboard(st.session_state["utente"])
+        return
 
     interfaccia()
-    pagine = ["Login","Registrazione","Recupera Password"]
+    pagine = ["Login", "Registrazione", "Recupera Password"]
     scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
     st.session_state["pagina"] = scelta
 
@@ -370,7 +385,7 @@ def main():
     else:
         recupera_password()
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
 
 
