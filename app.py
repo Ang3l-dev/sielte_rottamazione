@@ -223,7 +223,7 @@ def mostra_dashboard(utente):
 
     if st.button("Salva"):
         st.session_state["salvataggio_in_corso"] = True
-        st.experimental_rerun()
+        st.rerun()
 
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -253,6 +253,7 @@ def main():
     else:recupera_password()
 
 if __name__=="__main__":main()
+
 
 
 
