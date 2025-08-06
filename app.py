@@ -244,6 +244,7 @@ def cambio_password_forzato():
         st.session_state["pagina"] = "Login"
         st.session_state["utente_reset"] = None
         st.rerun()
+#CALCOLO INTERVALLO DATA
 def calcola_intervallo(dt):
     if pd.isna(dt) or str(dt).strip() == '-':
         return "Nessun Consumo"
@@ -261,12 +262,8 @@ def calcola_intervallo(dt):
         return f"{mesi} Mesi"
     elif mesi == 1:
         return "1 Mese"
-    elif giorni > 1:
-        return f"{giorni} Giorni"
-    elif giorni == 1:
-        return "1 Giorno"
     else:
-        return "Oggi"
+        return "Oggi"  # Al posto di Giorni, così da non finire nel filtro
 
 
 
@@ -293,17 +290,27 @@ def mostra_dashboard(utente):
     df['Valore Complessivo'] = pd.to_numeric(df.get('Valore Complessivo', 0), errors='coerce').fillna(0.0)
     df['Rottamazione'] = df.get('Rottamazione', False).fillna(False).astype(bool)
     df['UserRottamazione'] = df.get('UserRottamazione', '').fillna('').astype(str)
+    
+    df['Data Ultimo Carico'] = pd.to_datetime(df.get('Data Ultimo Carico', pd.NaT), errors='coerce').dt.strftime('%d/%m/%Y')
+    df['Data Ultimo Consumo'] = pd.to_datetime(df.get('Data Ultimo Consumo', pd.NaT), errors='coerce').dt.strftime('%d/%m/%Y')
+    df['Ultimo Consumo'] = pd.to_datetime(df['Data Ultimo Consumo'], errors='coerce').apply(calcola_intervallo)
 
-    df['Data Ultimo Carico'] = pd.to_datetime(df.get('Data Ultimo Carico', pd.NaT), errors='coerce')
-    df['Data Ultimo Consumo'] = pd.to_datetime(df.get('Data Ultimo Consumo', pd.NaT), errors='coerce')
-    df['Ultimo Consumo'] = df['Data Ultimo Consumo'].apply(calcola_intervallo)
 
     # --- FILTRI ---
     st.markdown('### Filtri')
     rep_sel = st.multiselect('Filtra per Reparto', df['CodReparto'].unique().tolist())
     dis_sel = st.multiselect('Filtra per Dislocazione Territoriale', df['Dislocazione Territoriale'].unique().tolist())
     ubi_sel = st.multiselect('Filtra per Ubicazione', df['Ubicazione'].unique().tolist())
-    consumo_sel = st.multiselect('Filtra per Ultimo Consumo', df['Ultimo Consumo'].unique().tolist())
+
+    # Rimuovi intervalli in giorni dal filtro
+    intervalli_validi = sorted(set(i for i in df['Ultimo Consumo'].unique()
+                                   if i not in ["Oggi", "1 Giorno", "2 Giorni", "3 Giorni", "Nessun Consumo"]
+                                   and ("Mese" in i or "Anno" in i)),
+                               key=lambda x: (
+                                   int(x.split()[0]) if x.split()[0].isdigit() else 0,
+                                   0 if "Mese" in x else 1  # Prima i mesi poi gli anni
+                               ))
+    consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi/anni)', intervalli_validi)
 
     dff = df.copy()
     if rep_sel: dff = dff[dff['CodReparto'].isin(rep_sel)]
@@ -414,6 +421,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
