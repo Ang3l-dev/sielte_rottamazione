@@ -48,17 +48,50 @@ def load_data(path):
         df["UserRottamazione"] = ""
     return df
 
-# --- Styling e helper ---
+# --- Stile CSS ---
 def stile_login():
     st.markdown("""
-    <style>
-      .stApp { background: linear-gradient(135deg,#2c3e50,#3498db); color:white; }
-      label, div[data-baseweb="radio"] * { color:white!important; font-weight:bold; }
-      .title-center { text-align:center;color:white;font-size:2.5em;font-weight:bold;margin:1em 0; }
-      .stButton>button { background-color:#00bcd4;color:white;font-weight:bold;border-radius:8px;padding:0.5em 1.5em; }
-      .custom-success { background-color:#4CAF50;padding:1rem;border-radius:8px;color:white;font-weight:bold; }
-      [data-testid="stDownloadButton"] button { color:black!important; font-weight:bold; }
-    </style>
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+        }
+        label, div[data-baseweb="radio"] * {
+            color: white !important;
+            font-weight: bold;
+        }
+        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] > p {
+            color: white !important;
+            font-weight: bold;
+        }
+        .title-center {
+            text-align: center;
+            color: white;
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .stButton > button {
+            background-color: #00bcd4;
+            color: white;
+            font-weight: bold;
+            border-radius: 8px;
+            padding: 0.5em 1.5em;
+        }
+        .custom-success {
+            background-color: #4CAF50;
+            padding: 1rem;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+        }
+                /* Cambia solo il colore del testo del pulsante Scarica CSV */
+        [data-testid="stDownloadButton"] button {
+            color: black !important;
+            font-weight: bold;
+        }
+        </style>
     """, unsafe_allow_html=True)
 
 def messaggio_successo(testo):
@@ -251,7 +284,7 @@ def interfaccia():
     c1,c2 = st.columns([1,5])
     with c1:
         try:
-            st.image("https://www.confindustriaemilia.it/flex/...png", width=180)
+            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=180)
         except:
             st.markdown("🧭")
     with c2:
@@ -272,6 +305,7 @@ def main():
 
 if __name__=="__main__":
     main()
+
 
 
 
