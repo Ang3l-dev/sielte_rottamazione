@@ -313,14 +313,14 @@ def parse_intervallo(val):
     else:
         return (99, 0)  # Ignora tutto il resto
 
-# Rimuovi giorni e "Oggi", ma includi "Nessun Consumo"
-valori_filtrabili = df['Ultimo Consumo'].unique()
-intervalli_validi = sorted(
-    [v for v in valori_filtrabili if "Giorno" not in v and v != "Oggi"],
-    key=parse_intervallo
-)
-
-consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi, anni o assenza)', intervalli_validi)
+    # Rimuovi giorni e "Oggi", ma includi "Nessun Consumo"
+    valori_filtrabili = df['Ultimo Consumo'].unique()
+    intervalli_validi = sorted(
+        [v for v in valori_filtrabili if "Giorno" not in v and v != "Oggi"],
+        key=parse_intervallo
+    )
+    
+    consumo_sel = st.multiselect('Filtra per Ultimo Consumo (solo mesi, anni o assenza)', intervalli_validi)
 
 
     dff = df.copy()
@@ -432,6 +432,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
