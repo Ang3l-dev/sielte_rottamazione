@@ -94,56 +94,48 @@ def invia_email_nuova_password(dest, pwd):
         st.error(f"Errore invio email: {e}")
         return False
 
-# --- Caricamento dati ---
-def carica_dataframe():
+# --- Caricamento e preprocessamento con cache ---
+@st.cache_data(ttl=3600)
+def load_and_prepare_data():
     df = pd.read_excel(DATA_FILE, engine="openpyxl")
     df.columns = df.columns.str.strip()
-    return df
+    # Assicuriamoci colonne
+    df["Rottamazione"]     = df.get("Rottamazione", False).fillna(False).astype(bool)
+    df["UserRottamazione"] = df.get("UserRottamazione", "").fillna("").astype(str)
+    # Calcoli e formattazioni
+    df_proc = df.reset_index().rename(columns={"index": "_orig_index"})
+    for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
+        df_proc[c] = df_proc[c].fillna("TRANSITO").astype(str).str.replace(r"\.0$", "", regex=True)
+    df_proc["Giacenza"] = pd.to_numeric(df_proc.get("Giacenza", 0), errors="coerce").fillna(0).astype(int)
+    df_proc["Valore Complessivo"] = pd.to_numeric(df_proc.get("Valore Complessivo", 0), errors="coerce").fillna(0.0)
+    df_proc["Data Ultimo Carico"] = pd.to_datetime(df["Data Ultimo Carico"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
+    df_proc["Data Ultimo Consumo"] = pd.to_datetime(df["Data Ultimo Consumo"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
+    df_proc["Ultimo Consumo"] = pd.to_datetime(df["Data Ultimo Consumo"], errors="coerce").apply(calcola_intervallo)
+    return df, df_proc
 
-# --- Background save (aggiornamento mirato con openpyxl) ---
-from openpyxl import load_workbook
-
-# Mappa nomi colonna -> indice (calcola una volta)
-COL_MAP = {}
-def init_col_map():
-    wb = load_workbook(DATA_FILE)
-    ws = wb.active
-    for cell in ws[1]:
-        COL_MAP[cell.value] = cell.column
-    wb.close()
-
-init_col_map()
-
+# --- Background save (completo) ---
 def background_save_logic(updated, df_raw, current_email):
-    """
-    Aggiorna solo le celle modificate nel file Excel usando openpyxl per velocizzare.
-    """
-    wb = load_workbook(DATA_FILE)
-    ws = wb.active
+    df2 = df_raw.copy()
     blocked = 0
     for row in updated:
-        idx = int(row["_orig_index"]) + 2  # +2 per header e 1-based
+        idx = int(row["_orig_index"])
         newf = bool(row["Rottamazione"])
-        prev = df_raw.at[idx-2, "UserRottamazione"]
+        prev = df2.at[idx, "UserRottamazione"]
         if newf and not prev:
-            ws.cell(row=idx, column=COL_MAP.get("Rottamazione")).value = True
-            ws.cell(row=idx, column=COL_MAP.get("UserRottamazione")).value = current_email
+            df2.at[idx, "Rottamazione"]     = True
+            df2.at[idx, "UserRottamazione"] = current_email
         elif not newf and prev == current_email:
-            ws.cell(row=idx, column=COL_MAP.get("Rottamazione")).value = False
-            ws.cell(row=idx, column=COL_MAP.get("UserRottamazione")).value = ""
+            df2.at[idx, "Rottamazione"]     = False
+            df2.at[idx, "UserRottamazione"] = ""
         elif prev and prev != current_email:
             blocked += 1
-    wb.save(DATA_FILE)
-    wb.close()
+    df2.to_excel(DATA_FILE, index=False, engine="openpyxl")
     st.session_state.clear()
     st.session_state["salvataggio_bloccati"] = blocked
     st.session_state["pagina"] = "Login"
     st.rerun()
 
 def background_save(updated, df_raw, current_email):
-    """
-    Salva in background senza riscrivere l'intero file, migliorando le prestazioni.
-    """
     threading.Thread(target=background_save_logic, args=(updated, df_raw, current_email)).start()
     st.success("✅ Salvataggio avviato! Tornerai al login a breve.")
     st.markdown("<meta http-equiv='refresh' content='2;url=/' />", unsafe_allow_html=True)
@@ -169,29 +161,6 @@ def login():
         st.session_state["pagina"] = "Recupera Password"
         st.rerun()
 
-def cambio_password_forzato():
-    u = st.session_state.get("utente_reset")
-    st.subheader("Cambio Password")
-    temp = st.text_input("Password temporanea", type="password")
-    new1 = st.text_input("Nuova password", type="password")
-    new2 = st.text_input("Conferma nuova password", type="password")
-    if st.button("Cambia password"):
-        if temp != u["password"]:
-            st.error("Password temporanea non corretta")
-        elif new1 != new2:
-            st.error("Le nuove password non corrispondono")
-        else:
-            users = carica_utenti()
-            for x in users:
-                if x["email"].lower() == u["email"].lower():
-                    x["password"]       = new1
-                    x["reset_required"] = False
-            salva_utenti(users)
-            messaggio_successo("Password aggiornata. Effettua login.")
-            st.session_state["pagina"] = "Login"
-            st.session_state.pop("utente_reset")
-            st.rerun()
-
 # --- Dashboard principale ---
 def mostra_dashboard(utente):
     stile_login()
@@ -199,31 +168,14 @@ def mostra_dashboard(utente):
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
-    # 1) Carica DataFrame
-    try:
-        df_raw = carica_dataframe()
-    except Exception as e:
-        st.error(f"Errore caricamento dati: {e}")
-        return
-
-    df_raw["Rottamazione"]     = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
-    df_raw["UserRottamazione"] = df_raw.get("UserRottamazione", "").fillna("").astype(str)
-
-    df = df_raw.reset_index().rename(columns={"index": "_orig_index"})
-    for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
-        df[c] = df[c].fillna("TRANSITO").astype(str).str.replace(r"\.0$", "", regex=True)
-    df["Giacenza"] = pd.to_numeric(df.get("Giacenza",0), errors="coerce").fillna(0).astype(int)
-    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0), errors="coerce").fillna(0.0)
-
-    df["Data Ultimo Carico"] = pd.to_datetime(df_raw["Data Ultimo Carico"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
-    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
-    df["Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce").apply(calcola_intervallo)
+    # Carica e usa dati caché
+    df_raw, df = load_and_prepare_data()
 
     st.markdown("### Filtri")
     rep_sel = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
     dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
     ubi_sel = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
-    vals    = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
+    vals    = sorted(df["Ultimo Consumo"].unique(), key=key_consumo)
     consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
 
     dff = df.copy()
@@ -232,26 +184,24 @@ def mostra_dashboard(utente):
     if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
     if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    st.download_button("📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), file_name="tabella_filtrata.csv", mime="text/csv")
+    st.download_button("📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), mime="text/csv")
 
     cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione","Giacenza","Valore Complessivo","Rottamazione","UserRottamazione","Data Ultimo Carico","Data Ultimo Consumo","Ultimo Consumo"]
     grid_df = dff[cols].copy()
     grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(lambda x: f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X","."))
-
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
     gb.configure_column("Rottamazione", editable=True, cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione", editable=False)
-    opts = gb.build()
+    resp = AgGrid(grid_df, gridOptions=gb.build(), fit_columns_on_grid_load=True, update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
 
-    resp = AgGrid(grid_df, gridOptions=opts, fit_columns_on_grid_load=True, update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
-    updated = resp["data"].to_dict("records") if isinstance(resp["data"], pd.DataFrame) else resp["data"]
+    updated = resp["data"] if not isinstance(resp["data"], pd.DataFrame) else resp["data"].to_dict("records")
 
     if st.button("Salva"):
         background_save(updated, df_raw, current_email)
 
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
-    st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
+    st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}" )
 
 # --- Logo e navigazione ---
 def interfaccia():
@@ -271,27 +221,19 @@ def main():
         st.session_state["pagina"] = "Login"
     if "utente" not in st.session_state:
         st.session_state["utente"] = None
-
     if st.session_state.get("utente_reset"):
         cambio_password_forzato()
         return
-
     if st.session_state["utente"]:
         mostra_dashboard(st.session_state["utente"])
         return
-
     interfaccia()
-    pagine = ["Login", "Registrazione", "Recupera Password"]
+    pagine = ["Login","Registrazione","Recupera Password"]
     scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
     st.session_state["pagina"] = scelta
+    if scelta == "Login": login()
+    elif scelta == "Registrazione": registrazione()
+    else: recupera_password()
 
-    if scelta == "Login":
-        login()
-    elif scelta == "Registrazione":
-        registrazione()
-    else:
-        recupera_password()
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
 
