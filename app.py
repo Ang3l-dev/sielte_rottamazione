@@ -19,7 +19,7 @@ SMTP_PORT     = 587
 SMTP_EMAIL    = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 UTENTI_FILE   = "utenti.json"
-DATA_FILE     = os.path.join("data", "data.xlsx")
+DATA_FILE     = os.path.join("data", "data.parquet")
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -118,11 +118,16 @@ def cambio_password_forzato():
 
 def carica_reparti_da_excel():
     try:
-        df0 = pd.read_excel(DATA_FILE)
+        df0 = pd.read_parquet(DATA_FILE)
         df0.columns = df0.columns.str.strip()
         return sorted(df0["CodReparto"].fillna("").astype(str).unique())
     except:
         return []
+
+# --- Background save ---
+def background_save(df_to_save):
+    df_to_save.to_parquet(DATA_FILE, index=False, engine="pyarrow")
+
 
 def registrazione():
     st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
@@ -358,6 +363,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
