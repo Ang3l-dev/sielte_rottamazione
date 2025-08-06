@@ -40,7 +40,7 @@ SMTP_PORT     = 587
 SMTP_EMAIL    = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 UTENTI_FILE   = "utenti.json"
-DATA_FILE     = os.path.join("data", "data.parquet")
+DATA_FILE     = os.path.join("data", "data.xlsx")  # Torniamo al file XLSX
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -96,67 +96,36 @@ def invia_email_nuova_password(dest, pwd):
 
 # --- Caricamento e salvataggio dati ---
 def carica_dataframe():
-    df = pd.read_parquet(DATA_FILE)
+    df = pd.read_excel(DATA_FILE, engine="openpyxl")
     df.columns = df.columns.str.strip()
     return df
 
-def background_save(df_to_save):
-    df_to_save.to_parquet(DATA_FILE, index=False, engine="pyarrow")
+def background_save_logic(updated, df_raw, current_email):
+    df2 = df_raw.copy()
+    blocked = 0
+    for row in updated:
+        idx  = int(row["_orig_index"])
+        newf = bool(row["Rottamazione"])
+        prev = df2.at[idx, "UserRottamazione"]
+        if newf and not prev:
+            df2.at[idx, "Rottamazione"]     = True
+            df2.at[idx, "UserRottamazione"] = current_email
+        elif not newf and prev == current_email:
+            df2.at[idx, "Rottamazione"]     = False
+            df2.at[idx, "UserRottamazione"] = ""
+        elif prev and prev != current_email:
+            blocked += 1
+    df2.to_excel(DATA_FILE, index=False, engine="openpyxl")
+    st.session_state.clear()
+    st.session_state["salvataggio_bloccati"] = blocked
+    st.session_state["pagina"] = "Login"
+    st.rerun()
 
-# --- Login / Registrazione / Reset Password ---
-def login():
-    st.subheader("Login")
-    email = st.text_input("Email")
-    pwd   = st.text_input("Password", type="password")
-    if st.button("Accedi"):
-        for u in carica_utenti():
-            if u["email"] == email and u["password"] == pwd:
-                if u.get("reset_required"):
-                    st.session_state["utente_reset"] = u
-                    st.session_state["pagina"]       = "Cambio Password"
-                else:
-                    messaggio_successo(f"Benvenuto {u['nome']} {u['cognome']}")
-                    st.session_state["utente"] = u
-                st.rerun()
-        st.error("Credenziali non valide")
-    if st.button("Recupera Password", type="secondary"):
-        st.session_state["pagina"] = "Recupera Password"
-        st.rerun()
+def background_save(df_to_save, df_raw, current_email):
+    threading.Thread(target=background_save_logic, args=(df_to_save, df_raw, current_email)).start()
+    st.success("✅ Salvataggio in corso in background... Verrai reindirizzato alla pagina di login.")
+    st.stop()
 
-def cambio_password_forzato():
-    u = st.session_state.get("utente_reset")
-    st.subheader("Cambio Password")
-    temp = st.text_input("Password temporanea", type="password")
-    new1 = st.text_input("Nuova password", type="password")
-    new2 = st.text_input("Conferma nuova password", type="password")
-    if st.button("Cambia password"):
-        if temp != u["password"]:
-            st.error("Password temporanea non corretta")
-        elif new1 != new2:
-            st.error("Le nuove password non corrispondono")
-        else:
-            users = carica_utenti()
-            for x in users:
-                if x["email"].lower() == u["email"].lower():
-                    x["password"]       = new1
-                    x["reset_required"] = False
-            salva_utenti(users)
-            messaggio_successo("Password aggiornata. Effettua login.")
-            st.session_state["pagina"] = "Login"
-            st.session_state.pop("utente_reset")
-            st.rerun()
-
-def carica_reparti_da_excel():
-    try:
-        df0 = pd.read_parquet(DATA_FILE)
-        df0.columns = df0.columns.str.strip()
-        return sorted(df0["CodReparto"].fillna("").astype(str).unique())
-    except:
-        return []
-
-# --- Background save ---
-def background_save(df_to_save):
-    df_to_save.to_parquet(DATA_FILE, index=False, engine="pyarrow")
 
 # --- Caricamento dati generale ---
 def carica_dataframe():
@@ -250,26 +219,9 @@ def mostra_dashboard(utente):
         updated = updated.to_dict("records")
 
     # 6) SALVA (solo qui facciamo il rerun)
+    # 6) SALVA (in background e con redirect)
     if st.button("Salva"):
-        with st.spinner("💾 Salvataggio in corso, attendere…"):
-            df2 = df_raw.copy()
-            blocked = 0
-            for row in updated:
-                idx  = int(row["_orig_index"])
-                newf = bool(row["Rottamazione"])
-                prev = df2.at[idx, "UserRottamazione"]
-                if newf and not prev:
-                    df2.at[idx, "Rottamazione"]     = True
-                    df2.at[idx, "UserRottamazione"] = current_email
-                elif not newf and prev == current_email:
-                    df2.at[idx, "Rottamazione"]     = False
-                    df2.at[idx, "UserRottamazione"] = ""
-                elif prev and prev != current_email:
-                    blocked += 1
-            df2.to_parquet(DATA_FILE, index=False, engine="pyarrow")
-
-        messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
-        st.rerun()
+        background_save(updated, df_raw, current_email)
 
     # 7) STATISTICHE
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -321,6 +273,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
