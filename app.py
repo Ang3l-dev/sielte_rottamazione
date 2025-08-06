@@ -18,7 +18,7 @@ SMTP_PORT = 587
 SMTP_EMAIL = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 
-UTENTI_FILE = os.path.join("data", "utenti.json")
+UTENTI_FILE = "utenti.json"
 DATA_FILE = os.path.join("data", "data.xlsx")
 
 # --- Funzioni Utenti ---
@@ -407,6 +407,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
