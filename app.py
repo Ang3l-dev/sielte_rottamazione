@@ -299,30 +299,33 @@ def mostra_dashboard(utente):
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # Salvataggio
+        # 6) Salvataggio patch-only + spinner
     if st.button("Salva"):
-        df2 = pd.read_excel(DATA_FILE)
-        df2.columns = df2.columns.str.strip()
-        for c in ["CodReparto","Dislocazione Territoriale","Ubicazione"]:
-            df2[c] = df2[c].astype(str).str.replace(r"\.0$","",regex=True)
-        df2["Rottamazione"]     = df2.get("Rottamazione",False).fillna(False).astype(bool)
-        df2["UserRottamazione"] = df2.get("UserRottamazione","").fillna("").astype(str)
-        blocked=0
-        for row in updated:
-            idx=int(row["_orig_index"])
-            newf=bool(row["Rottamazione"])
-            prev=df2.at[idx,"UserRottamazione"]
-            if newf and not prev:
-                df2.at[idx,"Rottamazione"]=True
-                df2.at[idx,"UserRottamazione"]=current_email
-            elif not newf and prev==current_email:
-                df2.at[idx,"Rottamazione"]=False
-                df2.at[idx,"UserRottamazione"]=""
-            elif prev and prev!=current_email:
-                blocked+=1
-        df2.to_excel(DATA_FILE,index=False)
-        messaggio_successo(f"✅ Modifiche salvate. Righe non modificate: {blocked}")
+        with st.spinner("💾 Salvataggio in corso, attendere…"):
+            # prendo la versione RAW già caricata in memoria
+            df2 = df_raw.copy()
+            blocked = 0
+            for row in updated:
+                idx  = int(row["_orig_index"])
+                newf = bool(row["Rottamazione"])
+                prev = df2.at[idx, "UserRottamazione"]
+                if newf and not prev:
+                    df2.at[idx, "Rottamazione"]     = True
+                    df2.at[idx, "UserRottamazione"] = current_email
+                elif not newf and prev == current_email:
+                    df2.at[idx, "Rottamazione"]     = False
+                    df2.at[idx, "UserRottamazione"] = ""
+                elif prev and prev != current_email:
+                    blocked += 1
+            # scrivo una sola volta il file
+            df2.to_excel(DATA_FILE, index=False)
+            # invalidiamo la cache di load_data
+            load_data.clear()
+        # fine spinner
+        messaggio_successo(f"✅ Salvate. Righe non modificate (permessi): {blocked}")
+        # ricarica l’app per mostrare subito le modifiche
         st.rerun()
+
 
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -368,4 +371,5 @@ def main():
 
 if __name__=="__main__":
     main()
+
 
