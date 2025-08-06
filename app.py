@@ -9,9 +9,27 @@ import string
 import threading
 from email.message import EmailMessage
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
-from utils import calcola_intervallo, key_consumo  # Assicurati che queste funzioni siano definite
 
+# --- Funzioni di supporto ---
+def calcola_intervallo(dt):
+    if pd.isna(dt):
+        return "Nessun Consumo"
+    delta = pd.Timestamp.today() - dt
+    anni  = delta.days // 365
+    mesi  = (delta.days % 365) // 30
+    if anni > 1:  return f"{anni} Anni"
+    if anni == 1: return "1 Anno"
+    if mesi > 1:  return f"{mesi} Mesi"
+    if mesi == 1: return "1 Mese"
+    return "Oggi"
 
+def key_consumo(v):
+    if v.startswith("Nessun"): return (2,0)
+    parts = v.split()
+    num = int(parts[0]) if parts and parts[0].isdigit() else 0
+    if "Mese" in v: return (0,num)
+    if "Anno" in v: return (1,num)
+    return (3,num)
 
 # Configurazione pagina
 st.set_page_config(page_title="Sielte Rottamazione", layout="wide")
@@ -75,6 +93,15 @@ def invia_email_nuova_password(dest, pwd):
     except Exception as e:
         st.error(f"Errore invio email: {e}")
         return False
+
+# --- Caricamento e salvataggio dati ---
+def carica_dataframe():
+    df = pd.read_parquet(DATA_FILE)
+    df.columns = df.columns.str.strip()
+    return df
+
+def background_save(df_to_save):
+    df_to_save.to_parquet(DATA_FILE, index=False, engine="pyarrow")
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -294,6 +321,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
