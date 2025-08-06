@@ -13,12 +13,12 @@ from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, DataReturnMode
 st.set_page_config(page_title="Sielte Rottamazione", layout="wide")
 
 # Costanti
-SMTP_SERVER = "smtp.gmail.com"
-SMTP_PORT = 587
-SMTP_EMAIL = "no.reply.rec.psw@gmail.com"
-SMTP_PASSWORD = "usrq vbeu pwap pubp"
-UTENTI_FILE = "utenti.json"
-DATA_FILE = os.path.join("data", "data.xlsx")
+SMTP_SERVER    = "smtp.gmail.com"
+SMTP_PORT      = 587
+SMTP_EMAIL     = "no.reply.rec.psw@gmail.com"
+SMTP_PASSWORD  = "usrq vbeu pwap pubp"
+UTENTI_FILE    = "utenti.json"
+DATA_FILE      = os.path.join("data", "data.xlsx")
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -36,12 +36,11 @@ def salva_utenti(lista):
     with open(UTENTI_FILE, "w") as f:
         json.dump(lista, f, indent=4)
 
-# --- Caching del caricamento Excel ---
+# --- Cache del caricamento Excel ---
 @st.cache_data(ttl=600)
 def load_data(path):
     df = pd.read_excel(path)
     df.columns = df.columns.str.strip()
-    # Assicura le colonne di flag esistano
     if "Rottamazione" not in df.columns:
         df["Rottamazione"] = False
     if "UserRottamazione" not in df.columns:
@@ -94,9 +93,11 @@ def stile_login():
         </style>
     """, unsafe_allow_html=True)
 
+
 def messaggio_successo(testo):
     st.markdown(f"<div class='custom-success'>✅ {testo}</div>", unsafe_allow_html=True)
 
+# --- Password Reset Utilities ---
 def genera_password_temporanea(n=10):
     chars = string.ascii_letters + string.digits + "!@#$%^&*"
     return "".join(random.choices(chars, k=n))
@@ -104,8 +105,8 @@ def genera_password_temporanea(n=10):
 def invia_email_nuova_password(dest, pwd):
     msg = EmailMessage()
     msg["Subject"] = "Recupero Password - Sielte App"
-    msg["From"] = SMTP_EMAIL
-    msg["To"] = dest
+    msg["From"]    = SMTP_EMAIL
+    msg["To"]      = dest
     msg.set_content(f"La tua nuova password temporanea è: {pwd}\nTi verrà chiesto di cambiarla al primo accesso.")
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
@@ -117,24 +118,24 @@ def invia_email_nuova_password(dest, pwd):
         st.error(f"Errore invio email: {e}")
         return False
 
-# --- Login / Registrazione / Reset Password ---
+# --- Login / Reset Password / Registrazione ---
 def login():
     st.subheader("Login")
     email = st.text_input("Email")
     pwd   = st.text_input("Password", type="password")
     if st.button("Accedi"):
         for u in carica_utenti():
-            if u["email"]==email and u["password"]==pwd:
+            if u["email"] == email and u["password"] == pwd:
                 if u.get("reset_required"):
-                    st.session_state["utente_reset"]=u
-                    st.session_state["pagina"]="Cambio Password"
+                    st.session_state["utente_reset"] = u
+                    st.session_state["pagina"]       = "Cambio Password"
                 else:
                     messaggio_successo(f"Benvenuto {u['nome']} {u['cognome']}")
-                    st.session_state["utente"]=u
+                    st.session_state["utente"]       = u
                 st.rerun()
         st.error("Credenziali non valide")
     if st.button("Recupera Password", type="secondary"):
-        st.session_state["pagina"]="Recupera Password"
+        st.session_state["pagina"] = "Recupera Password"
         st.rerun()
 
 def cambio_password_forzato():
@@ -144,22 +145,22 @@ def cambio_password_forzato():
     new1 = st.text_input("Nuova password", type="password")
     new2 = st.text_input("Conferma nuova password", type="password")
     if st.button("Cambia password"):
-        if temp!=u["password"]:
+        if temp != u["password"]:
             st.error("Password temporanea non corretta")
-        elif new1!=new2:
+        elif new1 != new2:
             st.error("Le nuove password non corrispondono")
         else:
             users = carica_utenti()
             for x in users:
-                if x["email"].lower()==u["email"].lower():
-                    x["password"]=new1
-                    x["reset_required"]=False
+                if x["email"].lower() == u["email"].lower():
+                    x["password"]       = new1
+                    x["reset_required"] = False
             salva_utenti(users)
             messaggio_successo("Password aggiornata. Effettua login.")
-            st.session_state["pagina"]="Login"
+            st.session_state["pagina"] = "Login"
             st.session_state.pop("utente_reset")
             st.rerun()
-# --- Registrazione ---
+
 @st.cache_data
 def carica_reparti_da_excel():
     try:
@@ -170,35 +171,29 @@ def carica_reparti_da_excel():
 
 def registrazione():
     st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
-    nome = st.text_input("Nome")
+    nome    = st.text_input("Nome")
     cognome = st.text_input("Cognome")
-    email = st.text_input("Email")
-    pwd  = st.text_input("Password", type="password")
-    pwd2 = st.text_input("Conferma Password", type="password")
+    email   = st.text_input("Email")
+    pwd     = st.text_input("Password", type="password")
+    pwd2    = st.text_input("Conferma Password", type="password")
     st.caption("🔐 Min 6 caratteri, un numero e un simbolo.")
-
-    # Carica reparti dalla colonna CodReparto
     rep_disp = carica_reparti_da_excel()
     rep_sel  = st.multiselect("Reparti abilitati", rep_disp)
-
     if st.button("Registra"):
         errs = []
         if not nome.strip():     errs.append("Nome mancante")
         if not cognome.strip():  errs.append("Cognome mancante")
         if not email.strip():    errs.append("Email mancante")
-        if pwd!=pwd2:            errs.append("Password non corrispondono")
-        if len(pwd)<6 or not re.search(r"\d",pwd) or not re.search(r"[^\w\s]",pwd):
+        if pwd != pwd2:          errs.append("Password non corrispondono")
+        if len(pwd) < 6 or not re.search(r"\d", pwd) or not re.search(r"[^\w\s]", pwd):
             errs.append("Password non conforme")
         if not rep_sel:          errs.append("Seleziona almeno un reparto")
-
         users = carica_utenti()
-        if any(u["email"].lower()==email.lower() for u in users):
+        if any(u["email"].lower() == email.lower() for u in users):
             errs.append("⚠️ Email già registrata")
-
         if errs:
             for e in errs: st.error(f"❌ {e}")
             return
-
         nuovo = {
             "nome": nome, "cognome": cognome, "email": email,
             "password": pwd, "ruolo": "User",
@@ -210,18 +205,17 @@ def registrazione():
         st.session_state["pagina"] = "Login"
         st.rerun()
 
-# --- Recupero Password ---
 def recupera_password():
     st.markdown('<div class="title-center">Recupera Password</div>', unsafe_allow_html=True)
     email = st.text_input("Inserisci email per reset")
     if st.button("Invia nuova password"):
         users = carica_utenti()
-        u = next((x for x in users if x["email"].lower()==email.lower()), None)
+        u = next((x for x in users if x["email"].lower() == email.lower()), None)
         if not u:
             st.error("⚠️ Email non trovata")
             return
         new_pwd = genera_password_temporanea()
-        u["password"] = new_pwd
+        u["password"]       = new_pwd
         u["reset_required"] = True
         salva_utenti(users)
         if invia_email_nuova_password(email, new_pwd):
@@ -229,61 +223,23 @@ def recupera_password():
         else:
             st.error("❌ Errore invio email")
 
-
-# --- Helper intervallo ---
+# --- Helper intervallo & ordinamento ---
 def calcola_intervallo(dt):
     if pd.isna(dt):
         return "Nessun Consumo"
     oggi = pd.Timestamp.today()
     delta = oggi - dt
-    anni = delta.days//365
-    mesi = (delta.days%365)//30
-    if anni>1:   return f"{anni} Anni"
-    if anni==1:  return "1 Anno"
-    if mesi>1:   return f"{mesi} Mesi"
-    if mesi==1:  return "1 Mese"
+    anni = delta.days // 365
+    mesi = (delta.days % 365) // 30
+    if anni > 1:   return f"{anni} Anni"
+    if anni == 1:  return "1 Anno"
+    if mesi > 1:   return f"{mesi} Mesi"
+    if mesi == 1:  return "1 Mese"
     return "Oggi"
 
-# --- Dashboard utente ---
-def mostra_dashboard(utente):
-    stile_login()
-    st.markdown(f"<div class='title-center'>Benvenuto, {utente['nome']}!</div>", unsafe_allow_html=True)
-    st.write(f"Ruolo: **{utente['ruolo']}**")
-    current_email = utente["email"]
-
-    # 1) leggi da cache (o da disco la prima volta)
-    try:
-        df_raw = load_data(DATA_FILE)
-    except Exception as e:
-        st.error(f"Errore caricamento Excel: {e}")
-        return
-
-    # 2) pipeline di pulizia/display
-    df = df_raw.reset_index().rename(columns={"index":"_orig_index"})
-    for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
-        df[c] = ( df[c]
-                  .fillna("TRANSITO")
-                  .astype(str)
-                  .str.replace(r"\.0$","",regex=True) )
-    df["Giacenza"] = pd.to_numeric(df.get("Giacenza",0),errors="coerce").fillna(0).astype(int)
-    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0),errors="coerce").fillna(0.0)
-    df["Rottamazione"]       = df["Rottamazione"].fillna(False).astype(bool)
-    df["UserRottamazione"]   = df["UserRottamazione"].fillna("").astype(str)
-    df["Ultimo Consumo"]     = df["Data Ultimo Consumo"].apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce")))
-
-    # 3) Filtri
-    st.markdown("### Filtri")
-    rep_sel = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
-    dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
-    # ordina "Ultimo Consumo"
-# sostituisci la tua funzione key_consumo con questa:
-
 def key_consumo(v):
-    # prima i mesi, poi gli anni, poi le etichette “Nessun…”
     if v.startswith("Nessun"):
         return (2, 0)
-    # estrai il numero all’inizio (se non è un numero, usiamo 0)
     parts = v.split()
     try:
         num = int(parts[0])
@@ -293,22 +249,56 @@ def key_consumo(v):
         return (0, num)
     if "Anno" in v:
         return (1, num)
-    # qualunque altra etichetta (es. “Oggi”) la spostiamo in fondo
     return (3, num)
 
-# e poi riempi la lista ordinata così:
+# --- Dashboard principale ---
+def mostra_dashboard(utente):
+    stile_login()
+    st.markdown(f"<div class='title-center'>Benvenuto, {utente['nome']}!</div>", unsafe_allow_html=True)
+    st.write(f"Ruolo: **{utente['ruolo']}**")
+    current_email = utente["email"]
 
-    valori_consumo = df["Ultimo Consumo"].dropna().unique().tolist()
-    valori_filtrabili = sorted(valori_consumo, key=key_consumo)
+    try:
+        df_raw = load_data(DATA_FILE)
+    except Exception as e:
+        st.error(f"Errore caricamento Excel: {e}")
+        return
 
+    # Preparazione DF per visualizzazione
+    df = df_raw.reset_index().rename(columns={"index":"_orig_index"})
+    for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
+        df[c] = (
+            df[c]
+            .fillna("TRANSITO")
+            .astype(str)
+            .str.replace(r"\.0$", "", regex=True)
+        )
+    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza",0),errors="coerce").fillna(0).astype(int)
+    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0),errors="coerce").fillna(0.0)
+    df["Rottamazione"]      = df["Rottamazione"].fillna(False).astype(bool)
+    df["UserRottamazione"]  = df["UserRottamazione"].fillna("").astype(str)
+    df["Ultimo Consumo"]    = df["Data Ultimo Consumo"].apply(lambda x: calcola_intervallo(pd.to_datetime(x, errors="coerce")))
+
+    # Filtri
+    st.markdown("### Filtri")
+    rep_sel     = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
+    dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
+    ubi_sel     = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
+    valori_cons = df["Ultimo Consumo"].dropna().unique().tolist()
+    valori_filtrabili = sorted(valori_cons, key=key_consumo)
+    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", valori_filtrabili, default=[])
 
     dff = df.copy()
-    if rep_sel:      dff = dff[dff["CodReparto"].isin(rep_sel)]
-    if dis_sel:      dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
-    if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
-    if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
+    if rep_sel:
+        dff = dff[dff["CodReparto"].isin(rep_sel)]
+    if dis_sel:
+        dff = dff[dff["Dislocazione Territoriale"].isin(dis_sel)]
+    if ubi_sel:
+        dff = dff[dff["Ubicazione"].isin(ubi_sel)]
+    if consumo_sel:
+        dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    # 4) Download CSV
+    # Download CSV
     st.download_button(
         label="📥 Scarica CSV",
         data=dff.to_csv(index=False).encode("utf-8"),
@@ -316,68 +306,77 @@ def key_consumo(v):
         mime="text/csv"
     )
 
-    # 5) AgGrid
-    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
-            "Articolo","Descrizione","Giacenza","Valore Complessivo",
-            "Rottamazione","UserRottamazione","Data Ultimo Carico","Data Ultimo Consumo","Ultimo Consumo"]
+    # AgGrid
+    cols = [
+        "_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
+        "Articolo","Descrizione","Giacenza","Valore Complessivo",
+        "Rottamazione","UserRottamazione","Data Ultimo Carico",
+        "Data Ultimo Consumo","Ultimo Consumo"
+    ]
     grid_df = dff[cols].copy()
     grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(
         lambda x: f"€ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X",".")
     )
-    gb = GridOptionsBuilder.from_dataframe(grid_df)
+    gb   = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
-    gb.configure_column("Rottamazione", editable=True, cellEditor="agCheckboxCellEditor")
-    gb.configure_column("UserRottamazione", editable=False)
+    gb.configure_column("Rottamazione",      editable=True,  cellEditor="agCheckboxCellEditor")
+    gb.configure_column("UserRottamazione",  editable=False)
     opts = gb.build()
+
     resp = AgGrid(
-        grid_df, gridOptions=opts,
+        grid_df,
+        gridOptions=opts,
         fit_columns_on_grid_load=True,
         update_mode=GridUpdateMode.VALUE_CHANGED,
-        data_return_mode=DataReturnMode.FILTERED_AND_SORTED
+        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
     )
+
     updated = resp["data"]
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # 6) Salvataggio patch-only + invalidate cache
+    # Salva modifiche (patch-only + invalidate cache)
     if st.button("Salva"):
-        # prendi la versione RAW in cache, non riload
-        df2 = load_data(DATA_FILE).copy()
+        df2   = load_data(DATA_FILE).copy()
         blocked = 0
         for row in updated:
-            idx = int(row["_orig_index"])
-            newf = bool(row["Rottamazione"])
-            prev = df2.at[idx,"UserRottamazione"]
-            if   newf and not prev:
-                df2.at[idx,"Rottamazione"]     = True
-                df2.at[idx,"UserRottamazione"] = current_email
-            elif not newf and prev==current_email:
-                df2.at[idx,"Rottamazione"]     = False
-                df2.at[idx,"UserRottamazione"] = ""
-            elif prev and prev!=current_email:
+            idx   = int(row["_orig_index"])
+            newf  = bool(row["Rottamazione"])
+            prev  = df2.at[idx, "UserRottamazione"]
+            if newf and not prev:
+                df2.at[idx, "Rottamazione"]     = True
+                df2.at[idx, "UserRottamazione"] = current_email
+            elif not newf and prev == current_email:
+                df2.at[idx, "Rottamazione"]     = False
+                df2.at[idx, "UserRottamazione"] = ""
+            elif prev and prev != current_email:
                 blocked += 1
         df2.to_excel(DATA_FILE, index=False)
-        # invalidiamo la cache affinché al prossimo load_data venga ricaricato da disco
         load_data.clear()
         messaggio_successo(f"✅ Salvate. Righe non modificate (permessi): {blocked}")
-        # non serve forzare st.rerun(), ora che load_data è invalido al prossimo draw
         return
 
-    # 7) Statistiche
+    # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
 
-# --- Logo / Main navigation ---
+# --- Interfaccia logo ---
 def interfaccia():
-    c1,c2 = st.columns([1,5])
+    c1, c2 = st.columns([1,5])
     with c1:
         try:
-            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=180)
+            st.image(
+                "https://www.confindustriaemilia.it/flex/AppData/Redational/"
+                "ElencoAssociati/0.11906600%201536649262/"
+                "e037179fa82dad8532a1077ee51a4613.png",
+                width=180
+            )
         except:
             st.markdown("🧭")
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
 
+# --- Main ---
 def main():
     stile_login()
     if "pagina" not in st.session_state:
@@ -398,27 +397,14 @@ def main():
     scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
     st.session_state["pagina"] = scelta
 
-    if scelta == "Login":
+    if   scelta == "Login":
         login()
     elif scelta == "Registrazione":
         registrazione()
     else:
         recupera_password()
 
-
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
 
 
