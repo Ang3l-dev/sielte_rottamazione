@@ -122,30 +122,11 @@ def background_save_logic(updated, df_raw, current_email):
     return blocked
 
 def background_save(updated, df_raw, current_email):
-    placeholder = st.empty()  # Riserva spazio nella UI
-
-    # Mostra subito messaggio
-    with placeholder.container():
-        stile_login()
-        st.markdown("<div class='title-center'>💾 Salvataggio in corso...</div>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align:center;'>Attendere, stiamo salvando i dati e uscendo dall'applicazione.</p>", unsafe_allow_html=True)
-
-    # Ritarda il salvataggio per mostrare il messaggio prima
-    time.sleep(0.5)  # <-- Forza rendering del messaggio
-
-    try:
-        background_save_logic(updated, df_raw, current_email)
-        st.session_state["utente"] = None
-        st.session_state["pagina"] = "Login"
-        placeholder.empty()  # Pulisce
-        st.success("✅ Salvataggio completato. Verrai reindirizzato alla pagina di login.")
-        st.markdown("""
-            <meta http-equiv="refresh" content="2;url=/" />
-        """, unsafe_allow_html=True)
-        st.stop()
-    except Exception as e:
-        st.error(f"Errore durante il salvataggio: {e}")
-        st.stop()
+    st.session_state["updated_data"] = updated
+    st.session_state["raw_data"] = df_raw.to_dict("records")
+    st.session_state["current_email"] = current_email
+    st.session_state["pagina"] = "SalvataggioInCorso"
+    st.rerun()
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -261,7 +242,25 @@ def interfaccia():
             st.markdown("🧭")
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
-        
+
+def pagina_salvataggio_in_corso():
+    stile_login()
+    st.markdown("<div class='title-center'>💾 Salvataggio in corso...</div>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Attendere, stiamo completando l'operazione.</p>", unsafe_allow_html=True)
+
+    time.sleep(1)  # Per permettere il rendering
+
+    try:
+        df_raw = pd.DataFrame(st.session_state["raw_data"])
+        updated = st.session_state["updated_data"]
+        email = st.session_state["current_email"]
+        background_save_logic(updated, df_raw, email)
+        st.session_state.clear()
+        st.session_state["pagina"] = "SalvataggioCompletato"
+        st.rerun()
+    except Exception as e:
+        st.error(f"Errore durante il salvataggio: {e}")
+
 def pagina_salvataggio_completato():
     stile_login()
     st.markdown("<div class='title-center'>✅ Salvataggio effettuato</div>", unsafe_allow_html=True)
@@ -280,30 +279,33 @@ def pagina_salvataggio_completato():
 # --- Main ---
 def main():
     stile_login()
+
     if "pagina" not in st.session_state:
         st.session_state["pagina"] = "Login"
     if "utente" not in st.session_state:
         st.session_state["utente"] = None
 
-    # 1. Pagina transitoria dopo salvataggio
-    if st.session_state["pagina"] == "SalvataggioCompletato":
+    pagina = st.session_state["pagina"]
+
+    if pagina == "SalvataggioInCorso":
+        pagina_salvataggio_in_corso()
+        return
+
+    if pagina == "SalvataggioCompletato":
         pagina_salvataggio_completato()
         return
 
-    # 2. Cambio password forzato
     if st.session_state.get("utente_reset"):
         cambio_password_forzato()
         return
 
-    # 3. Dashboard principale
     if st.session_state["utente"]:
         mostra_dashboard(st.session_state["utente"])
         return
 
-    # 4. Login / Registrazione / Recupero
     interfaccia()
     pagine = ["Login", "Registrazione", "Recupera Password"]
-    scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
+    scelta = st.radio("Navigazione", pagine, index=pagine.index(pagina))
     st.session_state["pagina"] = scelta
 
     if scelta == "Login":
@@ -315,8 +317,10 @@ def main():
 
 
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
