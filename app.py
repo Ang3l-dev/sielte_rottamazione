@@ -171,6 +171,7 @@ def mostra_dashboard(utente):
     # Carica e usa dati caché
     df_raw, df = load_and_prepare_data()
 
+    # Filtri
     st.markdown("### Filtri")
     rep_sel = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
     dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
@@ -184,24 +185,45 @@ def mostra_dashboard(utente):
     if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
     if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    st.download_button("📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), mime="text/csv")
+    # Download CSV
+    st.download_button(
+        "📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), mime="text/csv"
+    )
 
-    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione","Giacenza","Valore Complessivo","Rottamazione","UserRottamazione","Data Ultimo Carico","Data Ultimo Consumo","Ultimo Consumo"]
+    # AgGrid: usa MODEL_CHANGED per batch update, non VALUE_CHANGED
+    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
+            "Articolo","Descrizione","Giacenza","Valore Complessivo",
+            "Rottamazione","UserRottamazione","Data Ultimo Carico",
+            "Data Ultimo Consumo","Ultimo Consumo"]
     grid_df = dff[cols].copy()
-    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(lambda x: f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X","."))
+    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(
+        lambda x: f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X",".")
+    )
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
     gb.configure_column("Rottamazione", editable=True, cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione", editable=False)
-    resp = AgGrid(grid_df, gridOptions=gb.build(), fit_columns_on_grid_load=True, update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
+    grid_opts = gb.build()
 
-    updated = resp["data"] if not isinstance(resp["data"], pd.DataFrame) else resp["data"].to_dict("records")
+    # Batch mode: changes only returned on call, not on each cell edit
+    grid_response = AgGrid(
+        grid_df,
+        gridOptions=grid_opts,
+        fit_columns_on_grid_load=True,
+        update_mode=GridUpdateMode.MODEL_CHANGED,
+        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
+        enable_enterprise_modules=False
+    )
 
-    if st.button("Salva"):
+    updated = grid_response["data"] if not isinstance(grid_response["data"], pd.DataFrame) else grid_response["data"].to_dict("records")
+
+    # Salva solo quando clicchi il bottone
+    if st.button("Salva"):  
         background_save(updated, df_raw, current_email)
 
+    # Statistiche finali
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
-    st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}" )
+    st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
 
 # --- Logo e navigazione ---
 def interfaccia():
@@ -236,4 +258,6 @@ def main():
     else: recupera_password()
 
 if __name__ == "__main__": main()
+
+
 
