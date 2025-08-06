@@ -94,12 +94,13 @@ def invia_email_nuova_password(dest, pwd):
         st.error(f"Errore invio email: {e}")
         return False
 
-# --- Caricamento e salvataggio dati ---
+# --- Caricamento dati ---
 def carica_dataframe():
     df = pd.read_excel(DATA_FILE, engine="openpyxl")
     df.columns = df.columns.str.strip()
     return df
 
+# --- Background save ---
 def background_save_logic(updated, df_raw, current_email):
     df2 = df_raw.copy()
     blocked = 0
@@ -122,20 +123,61 @@ def background_save_logic(updated, df_raw, current_email):
     st.rerun()
 
 def background_save(updated, df_raw, current_email):
-    threading.Thread(target=background_save_logic, args=(updated, df_raw, current_email)).start()
+    def async_save():
+        try:
+            background_save_logic(updated, df_raw, current_email)
+        except Exception as e:
+            st.error(f"Errore salvataggio: {e}")
+
+    threading.Thread(target=async_save).start()
     st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
     st.markdown("""
         <meta http-equiv="refresh" content="3;url=/" />
     """, unsafe_allow_html=True)
     st.stop()
 
+# --- Login / Registrazione / Reset Password ---
+def login():
+    st.subheader("Login")
+    email = st.text_input("Email")
+    pwd   = st.text_input("Password", type="password")
+    if st.button("Accedi"):
+        for u in carica_utenti():
+            if u["email"] == email and u["password"] == pwd:
+                if u.get("reset_required"):
+                    st.session_state["utente_reset"] = u
+                    st.session_state["pagina"]       = "Cambio Password"
+                else:
+                    messaggio_successo(f"Benvenuto {u['nome']} {u['cognome']}")
+                    st.session_state["utente"] = u
+                st.rerun()
+        st.error("Credenziali non valide")
+    if st.button("Recupera Password", type="secondary"):
+        st.session_state["pagina"] = "Recupera Password"
+        st.rerun()
 
-# --- Caricamento dati generale ---
-def carica_dataframe():
-    df = pd.read_parquet(DATA_FILE)
-    df.columns = df.columns.str.strip()
-    return df
-
+def cambio_password_forzato():
+    u = st.session_state.get("utente_reset")
+    st.subheader("Cambio Password")
+    temp = st.text_input("Password temporanea", type="password")
+    new1 = st.text_input("Nuova password", type="password")
+    new2 = st.text_input("Conferma nuova password", type="password")
+    if st.button("Cambia password"):
+        if temp != u["password"]:
+            st.error("Password temporanea non corretta")
+        elif new1 != new2:
+            st.error("Le nuove password non corrispondono")
+        else:
+            users = carica_utenti()
+            for x in users:
+                if x["email"].lower() == u["email"].lower():
+                    x["password"]       = new1
+                    x["reset_required"] = False
+            salva_utenti(users)
+            messaggio_successo("Password aggiornata. Effettua login.")
+            st.session_state["pagina"] = "Login"
+            st.session_state.pop("utente_reset")
+            st.rerun()
 
 # --- Dashboard principale ---
 def mostra_dashboard(utente):
@@ -144,43 +186,31 @@ def mostra_dashboard(utente):
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
-    # 1) Leggi il file Parquet da disco UNA volta
+    # 1) Carica DataFrame
     try:
         df_raw = carica_dataframe()
     except Exception as e:
         st.error(f"Errore caricamento dati: {e}")
         return
 
-    # Assicuriamoci che esistano le colonne di flag
     df_raw["Rottamazione"]     = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
     df_raw["UserRottamazione"] = df_raw.get("UserRottamazione", "").fillna("").astype(str)
 
-    # 2) Prepara il DataFrame per la view
     df = df_raw.reset_index().rename(columns={"index": "_orig_index"})
     for c in ["Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione"]:
-        df[c] = (df[c]
-                  .fillna("TRANSITO")
-                  .astype(str)
-                  .str.replace(r"\.0$", "", regex=True))
-    df["Giacenza"]          = pd.to_numeric(df.get("Giacenza", 0), errors="coerce").fillna(0).astype(int)
-    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo", 0), errors="coerce").fillna(0.0)
+        df[c] = df[c].fillna("TRANSITO").astype(str).str.replace(r"\.0$", "", regex=True)
+    df["Giacenza"] = pd.to_numeric(df.get("Giacenza",0), errors="coerce").fillna(0).astype(int)
+    df["Valore Complessivo"] = pd.to_numeric(df.get("Valore Complessivo",0), errors="coerce").fillna(0.0)
 
-    # Format date (solo gg/mm/AAAA)
-    df["Data Ultimo Carico"]  = pd.to_datetime(df_raw["Data Ultimo Carico"],  errors="coerce") \
-                                    .dt.strftime("%d/%m/%Y").fillna("-")
-    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce") \
-                                    .dt.strftime("%d/%m/%Y").fillna("-")
+    df["Data Ultimo Carico"] = pd.to_datetime(df_raw["Data Ultimo Carico"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
+    df["Data Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce").dt.strftime("%d/%m/%Y").fillna("-")
+    df["Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce").apply(calcola_intervallo)
 
-    # Calcola intervallo
-    df["Ultimo Consumo"] = pd.to_datetime(df_raw["Data Ultimo Consumo"], errors="coerce") \
-                                .apply(calcola_intervallo)
-
-    # 3) FILTRI
     st.markdown("### Filtri")
-    rep_sel     = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
-    dis_sel     = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
-    ubi_sel     = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
-    vals        = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
+    rep_sel = st.multiselect("Filtra per Reparto", df["CodReparto"].unique(), default=[])
+    dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
+    ubi_sel = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
+    vals    = sorted(df["Ultimo Consumo"].dropna().unique(), key=key_consumo)
     consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
 
     dff = df.copy()
@@ -189,64 +219,39 @@ def mostra_dashboard(utente):
     if ubi_sel:      dff = dff[dff["Ubicazione"].isin(ubi_sel)]
     if consumo_sel:  dff = dff[dff["Ultimo Consumo"].isin(consumo_sel)]
 
-    # 4) Download CSV
-    st.download_button("📥 Scarica CSV",
-        data=dff.to_csv(index=False).encode("utf-8"),
-        file_name="tabella_filtrata.csv",
-        mime="text/csv")
+    st.download_button("📥 Scarica CSV", data=dff.to_csv(index=False).encode("utf-8"), file_name="tabella_filtrata.csv", mime="text/csv")
 
-    # 5) AgGrid
-    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione",
-            "Articolo","Descrizione","Giacenza","Valore Complessivo",
-            "Rottamazione","UserRottamazione","Data Ultimo Carico",
-            "Data Ultimo Consumo","Ultimo Consumo"]
+    cols = ["_orig_index","Dislocazione Territoriale","CodReparto","Ubicazione","Articolo","Descrizione","Giacenza","Valore Complessivo","Rottamazione","UserRottamazione","Data Ultimo Carico","Data Ultimo Consumo","Ultimo Consumo"]
     grid_df = dff[cols].copy()
-    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"] \
-        .map(lambda x: f"€ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X","."))
+    grid_df["Valore Complessivo"] = grid_df["Valore Complessivo"].map(lambda x: f"€ {x:,.2f}".replace(",","X").replace(".",",").replace("X","."))
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
     gb.configure_column("_orig_index", hide=True)
-    gb.configure_column("Rottamazione",     editable=True, cellEditor="agCheckboxCellEditor")
+    gb.configure_column("Rottamazione", editable=True, cellEditor="agCheckboxCellEditor")
     gb.configure_column("UserRottamazione", editable=False)
-    grid_opts = gb.build()
-    resp = AgGrid(
-        grid_df,
-        gridOptions=grid_opts,
-        fit_columns_on_grid_load=True,
-        update_mode=GridUpdateMode.VALUE_CHANGED,
-        data_return_mode=DataReturnMode.FILTERED_AND_SORTED,
-    )
+    opts = gb.build()
 
-    updated = resp["data"]
-    if isinstance(updated, pd.DataFrame):
-        updated = updated.to_dict("records")
+    resp = AgGrid(grid_df, gridOptions=opts, fit_columns_on_grid_load=True, update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
+    updated = resp["data"].to_dict("records") if isinstance(resp["data"], pd.DataFrame) else resp["data"]
 
-    # 6) SALVA (solo qui facciamo il rerun)
-    # 6) SALVA (in background e con redirect)
     if st.button("Salva"):
         background_save(updated, df_raw, current_email)
 
-    # 7) STATISTICHE
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
-
 
 # --- Logo e navigazione ---
 def interfaccia():
     c1, c2 = st.columns([1,5])
     with c1:
         try:
-            st.image(
-              "https://www.confindustriaemilia.it/flex/AppData/Redational/"
-              "ElencoAssociati/0.11906600%201536649262/"
-              "e037179fa82dad8532a1077ee51a4613.png",
-              width=180
-            )
+            st.image("https://www.confindustriaemilia.it/flex/AppData/Redational/ElencoAssociati/0.11906600%201536649262/e037179fa82dad8532a1077ee51a4613.png", width=180)
         except:
             st.markdown("🧭")
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
 
+# --- Main ---
 def main():
     stile_login()
     if "pagina" not in st.session_state:
@@ -276,11 +281,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
 
 
 
