@@ -19,7 +19,7 @@ SMTP_PORT     = 587
 SMTP_EMAIL    = "no.reply.rec.psw@gmail.com"
 SMTP_PASSWORD = "usrq vbeu pwap pubp"
 UTENTI_FILE   = "utenti.json"
-DATA_FILE     = os.path.join("data", "data.xlsx")
+DATA_FILE     = os.path.join("data", "data.csv")
 
 # --- Funzioni Utenti ---
 def carica_utenti():
@@ -233,7 +233,7 @@ def key_consumo(v):
 
 # --- Background save ---
 def background_save(df_to_save):
-    df_to_save.to_excel(DATA_FILE, index=False)
+    df = pd.read_csv(DATA_FILE, dtype=str)
 
 def mostra_dashboard(utente):
     stile_login()
@@ -243,7 +243,7 @@ def mostra_dashboard(utente):
 
     # 1) Leggi il file Excel da disco UNA volta
     try:
-        df_raw = pd.read_excel(DATA_FILE)
+        df_raw = pd.read_csv(DATA_FILE, dtype=str)
     except Exception as e:
         st.error(f"Errore caricamento Excel: {e}")
         return
@@ -336,7 +336,7 @@ def mostra_dashboard(utente):
                     df2.at[idx, "UserRottamazione"] = ""
                 elif prev and prev != current_email:
                     blocked += 1
-            df2.to_excel(DATA_FILE, index=False)
+            df2.to_csv(DATA_FILE, index=False)
 
         messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
         st.rerun()   # <— QUI facciamo il refresh _solo_ dopo il salvataggio
@@ -391,6 +391,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
