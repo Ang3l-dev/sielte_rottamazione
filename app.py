@@ -52,45 +52,14 @@ def salva_utenti(users):
     with open(UTENTI_FILE, 'w') as f: json.dump(users, f, indent=4)
 
 # --- Styling ---
-# Styling CSS custom
 def stile_login():
     st.markdown("""
-        <style>
-        .stApp {
-            background: linear-gradient(135deg, #2c3e50, #3498db);
-            color: white;
-        }
-        label, div[data-baseweb="radio"] * {
-            color: white !important;
-            font-weight: bold;
-        }
-        div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] > p {
-            color: white !important;
-            font-weight: bold;
-        }
-        .title-center {
-            text-align: center;
-            color: white;
-            font-size: 2.5em;
-            font-weight: bold;
-            margin-top: 1em;
-            margin-bottom: 0.5em;
-        }
-        .stButton > button {
-            background-color: #00bcd4;
-            color: white;
-            font-weight: bold;
-            border-radius: 8px;
-            padding: 0.5em 1.5em;
-        }
-        .custom-success {
-            background-color: #4CAF50;
-            padding: 1rem;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-        }
-        </style>
+    <style>
+    .stApp { background: linear-gradient(135deg,#2c3e50,#3498db); color:white; }
+    .title-center { text-align:center; color:white; font-size:2.5em; margin:1em 0; }
+    .stButton>button { background:#00bcd4; color:white; font-weight:bold; border-radius:8px; }
+    .custom-success { background:#4caf50; padding:1rem; border-radius:8px; color:white; }
+    </style>
     """, unsafe_allow_html=True)
 
 def messaggio_successo(texto):
@@ -132,7 +101,7 @@ def save_page():
     df2.to_excel(DATA_FILE,index=False,engine='openpyxl')
     messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
     # redirect a login
-    st.experimental_set_query_params(page='login')
+    st.query_params['page'] = ['login']
 
 # --- Login / Registrazione / Reset Password ---
 def login_page():
@@ -147,17 +116,17 @@ def login_page():
                 if u['email'] == email and u['password'] == pwd:
                     if u.get('reset_required'):
                         st.session_state['utente_reset'] = u
-                        st.experimental_set_query_params(page='reset')
+                        st.query_params['page'] = ['reset']
                     else:
                         st.session_state['utente'] = u
-                        st.experimental_set_query_params(page='dashboard')
+                        st.query_params['page'] = ['dashboard']
                     return
             st.error('Credenziali non valide')
     with c2:
         if st.button('Registrati'):
-            st.experimental_set_query_params(page='registrazione')
+            st.query_params['page'] = ['registrazione']
         if st.button('Recupera Password'):
-            st.experimental_set_query_params(page='reset')
+            st.query_params['page'] = ['reset']
 
 # placeholder per registrazione, reset...
 def registrazione_page():
@@ -200,7 +169,7 @@ def dashboard_page():
         # Mostra subito messaggio di attesa
         st.info('⏳ Attendere: salvataggio in corso...')
         # Naviga alla pagina di salvataggio
-        st.experimental_set_query_params(page='save')
+        st.query_params['page'] = ['save']
 
 # --- Router ---
 def main():
@@ -214,6 +183,7 @@ def main():
     else: login_page()
 
 if __name__=='__main__': main()
+
 
 
 
