@@ -328,7 +328,7 @@ def mostra_dashboard(utente):
     grid_df['Valore Complessivo'] = grid_df['Valore Complessivo'].map(lambda x: f"€ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X','.'))
 
     gb = GridOptionsBuilder.from_dataframe(grid_df)
-    gb.configure_column('_orig_index', hide=True)
+    gb.configure_column('_orig_index', header_name="", hide=True, suppressColumnsToolPanel=True)
     gb.configure_column('Rottamazione', editable=True, cellEditor='agCheckboxCellEditor')
     gb.configure_column('UserRottamazione', editable=False)
     grid_opts = gb.build()
@@ -421,6 +421,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
