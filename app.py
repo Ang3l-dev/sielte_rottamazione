@@ -362,19 +362,35 @@ def interfaccia():
 
 def main():
     stile_login()
-    if "pagina" not in st.session_state:      st.session_state["pagina"]="Login"
-    if "utente" not in st.session_state:      st.session_state["utente"]=None
-    if st.session_state.get("utente_reset"):  cambio_password_forzato(); return
+    if "pagina" not in st.session_state:
+        st.session_state["pagina"] = "Login"
+    if "utente" not in st.session_state:
+        st.session_state["utente"] = None
+
+    if st.session_state.get("utente_reset"):
+        cambio_password_forzato()
+        return
+
     if st.session_state["utente"]:
         mostra_dashboard(st.session_state["utente"])
+        return
+
+    interfaccia()
+    pagine = ["Login", "Registrazione", "Recupera Password"]
+    scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
+    st.session_state["pagina"] = scelta
+
+    if scelta == "Login":
+        login()
+    elif scelta == "Registrazione":
+        registrazione()
     else:
-        interfaccia()
-        pag = st.radio("Navigazione", ["Login","Recupera Password"], index=0)
-        if   pag=="Login":           login()
-        else:                        login()  # oppure implementa recupera_password()
+        recupera_password()
+
 
 if __name__=="__main__":
     main()
+
 
 
 
