@@ -105,19 +105,39 @@ def save_page():
 
 # --- Login / Registrazione / Reset Password ---
 def login_page():
-    stile_login(); st.subheader('Login')
-    email = st.text_input('Email'); pwd = st.text_input('Password',type='password')
-    if st.button('Accedi'):
-        for u in carica_utenti():
-            if u['email']==email and u['password']==pwd:
-                if u.get('reset_required'):
-                    st.session_state['utente_reset']=u; st.experimental_set_query_params(page='reset')
-                else:
-                    st.session_state['utente']=u; st.experimental_set_query_params(page='dashboard')
-                return
-        st.error('Credenziali non valide')
+    stile_login()
+    st.subheader('Login')
+    email = st.text_input('Email')
+    pwd = st.text_input('Password', type='password')
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button('Accedi'):
+            for u in carica_utenti():
+                if u['email'] == email and u['password'] == pwd:
+                    if u.get('reset_required'):
+                        st.session_state['utente_reset'] = u
+                        st.experimental_set_query_params(page='reset')
+                    else:
+                        st.session_state['utente'] = u
+                        st.experimental_set_query_params(page='dashboard')
+                    return
+            st.error('Credenziali non valide')
+    with c2:
+        if st.button('Registrati'):
+            st.experimental_set_query_params(page='registrazione')
+        if st.button('Recupera Password'):
+            st.experimental_set_query_params(page='reset')
 
 # placeholder per registrazione, reset...
+def registrazione_page():
+    stile_login()
+    st.subheader('Registrazione')
+    # qui la logica di registrazione
+
+def reset_page():
+    stile_login()
+    st.subheader('Recupera Password')
+    # qui la logica di reset password...
 def registrazione_page(): st.write('Registrazione')
 def reset_page(): st.write('Reset Password')
 
@@ -160,6 +180,5 @@ def main():
     else: login_page()
 
 if __name__=='__main__': main()
-
 
 
