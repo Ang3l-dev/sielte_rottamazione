@@ -259,14 +259,45 @@ def mostra_dashboard(utente):
     except Exception as e:
         st.error(f"Errore caricamento Excel: {e}")
         return
+
     df.columns = df.columns.str.strip()
-    df = df.reset_index().rename(columns={'index':'_orig_index'})
-    for c in ['Dislocazione Territoriale','CodReparto','Ubicazione','Articolo','Descrizione']:
-        df[c] = df.get(c,'TRANSITO').fillna('TRANSITO').astype(str).str.replace(r"\.0$", "", regex=True)
-    df['Giacenza'] = pd.to_numeric(df.get('Giacenza',0), errors='coerce').fillna(0).astype(int)
-    df['Valore Complessivo'] = pd.to_numeric(df.get('Valore Complessivo',0), errors='coerce').fillna(0.0)
+    df = df.reset_index().rename(columns={'index': '_orig_index'})
+    for c in ['Dislocazione Territoriale', 'CodReparto', 'Ubicazione', 'Articolo', 'Descrizione']:
+        df[c] = df.get(c, 'TRANSITO').fillna('TRANSITO').astype(str).str.replace(r"\.0$", "", regex=True)
+
+    df['Giacenza'] = pd.to_numeric(df.get('Giacenza', 0), errors='coerce').fillna(0).astype(int)
+    df['Valore Complessivo'] = pd.to_numeric(df.get('Valore Complessivo', 0), errors='coerce').fillna(0.0)
     df['Rottamazione'] = df.get('Rottamazione', False).fillna(False).astype(bool)
     df['UserRottamazione'] = df.get('UserRottamazione', '').fillna('').astype(str)
+    df['Data Ultimo Carico'] = pd.to_datetime(df.get('Data Ultimo Carico', pd.NaT), errors='coerce')
+    df['Data Ultimo Consumo'] = pd.to_datetime(df.get('Data Ultimo Consumo', pd.NaT), errors='coerce')
+
+    # Calcolo intervallo da ultimo consumo
+    def calcola_intervallo(dt):
+        if pd.isna(dt):
+            return "Nessun Consumo"
+        oggi = pd.Timestamp.today()
+        delta = oggi - dt
+        anni = delta.days // 365
+        mesi = (delta.days % 365) // 30
+        giorni = (delta.days % 365) % 30
+
+        if anni >= 2:
+            return f"{anni} Anni"
+        elif anni == 1:
+            return "1 Anno"
+        elif mesi >= 2:
+            return f"{mesi} Mesi"
+        elif mesi == 1:
+            return "1 Mese"
+        elif giorni > 1:
+            return f"{giorni} Giorni"
+        elif giorni == 1:
+            return "1 Giorno"
+        else:
+            return "Oggi"
+
+    df['Ultimo Consumo'] = df['Data Ultimo Consumo'].apply(calcola_intervallo)
 
     st.markdown('### Filtri')
     rep_sel = st.multiselect('Filtra per Reparto', df['CodReparto'].unique().tolist(), default=[])
@@ -279,13 +310,13 @@ def mostra_dashboard(utente):
 
     # Download CSV
     csv = dff.to_csv(index=False).encode('utf-8')
-    st.download_button(label="📥 Scarica CSV", data=csv, file_name="tabella_filtrata.csv", mime="text/csv",key="download._csv")
+    st.download_button(label="📥 Scarica CSV", data=csv, file_name="tabella_filtrata.csv", mime="text/csv", key="download._csv")
 
-    cols = ['_orig_index','Dislocazione Territoriale','CodReparto','Ubicazione',
-            'Articolo','Descrizione','Giacenza','Valore Complessivo','Rottamazione','UserRottamazione']
+    cols = ['_orig_index', 'Dislocazione Territoriale', 'CodReparto', 'Ubicazione',
+            'Articolo', 'Descrizione', 'Giacenza', 'Valore Complessivo', 'Rottamazione', 'UserRottamazione', 'Ultimo Consumo']
     grid_df = dff[cols].copy().loc[:, ~dff[cols].columns.duplicated()]
     grid_df['Giacenza'] = grid_df['Giacenza'].astype(str)
-    grid_df['Valore Complessivo'] = grid_df['Valore Complessivo'].map(lambda x: f"€ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X','.'))
+    grid_df['Valore Complessivo'] = grid_df['Valore Complessivo'].map(lambda x: f"€ {x:,.2f}".replace(',', 'X').replace('.', ',').replace('X', '.'))
 
     st.markdown("""
     <script>
@@ -300,6 +331,7 @@ def mostra_dashboard(utente):
     gb.configure_column('Rottamazione', editable=True, cellEditor='agCheckboxCellEditor', cellRenderer='agCheckboxCellRenderer')
     gb.configure_column('UserRottamazione', editable=False)
     grid_opts = gb.build()
+
     response = AgGrid(grid_df, gridOptions=grid_opts, width='100%', fit_columns_on_grid_load=True,
                       update_mode=GridUpdateMode.VALUE_CHANGED, data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
 
@@ -309,41 +341,20 @@ def mostra_dashboard(utente):
     if st.button('Salva'):
         df2 = pd.read_excel(DATA_FILE)
         df2.columns = df2.columns.str.strip()
-        for c in ['CodReparto','Dislocazione Territoriale','Ubicazione']:
+        for c in ['CodReparto', 'Dislocazione Territoriale', 'Ubicazione']:
             df2[c] = df2[c].astype(str).str.replace(r"\.0$", "", regex=True)
         df2['Rottamazione'] = df2.get('Rottamazione', False).fillna(False).astype(bool)
         df2['UserRottamazione'] = df2.get('UserRottamazione', '').fillna('').astype(str)
-        righe_bloccate = []
-
         for row in updated:
             idx = int(row['_orig_index'])
             new_flag = bool(row['Rottamazione'])
-            prev_flag = df2.at[idx, 'Rottamazione']
             prev_user = df2.at[idx, 'UserRottamazione']
-
-            if new_flag and not prev_flag:
-                # Inserisco nuovo flag
+            if new_flag and not prev_user:
                 df2.at[idx, 'Rottamazione'] = True
                 df2.at[idx, 'UserRottamazione'] = current_email
-
-            elif not new_flag and prev_flag and prev_user == current_email:
-                # Rimuovo flag se sono lo stesso utente
+            elif not new_flag and prev_user == current_email:
                 df2.at[idx, 'Rottamazione'] = False
                 df2.at[idx, 'UserRottamazione'] = ''
-
-            elif (new_flag != prev_flag) and prev_user != current_email:
-                # Flag impostato da altro utente, non modificabile
-                righe_bloccate.append(idx)
-
-        df2.to_excel(DATA_FILE, index=False)
-        st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
-
-        if righe_bloccate:
-            st.warning(f"⚠️ {len(righe_bloccate)} righe non sono state modificate perché inserite da altri utenti.")
-
-        messaggio_successo('✅ Modifiche salvate con successo.')
-        st.rerun()
-
         df2.to_excel(DATA_FILE, index=False)
         st.markdown('<script>window.onbeforeunload=null;</script>', unsafe_allow_html=True)
         messaggio_successo('✅ Modifiche salvate con successo.')
@@ -351,6 +362,7 @@ def mostra_dashboard(utente):
 
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
+
 
 
 
@@ -407,12 +419,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
 
 
 
