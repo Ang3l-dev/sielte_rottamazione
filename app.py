@@ -277,12 +277,30 @@ def mostra_dashboard(utente):
     dis_sel = st.multiselect("Filtra per Dislocazione Territoriale", df["Dislocazione Territoriale"].unique(), default=[])
     ubi_sel = st.multiselect("Filtra per Ubicazione", df["Ubicazione"].unique(), default=[])
     # ordina "Ultimo Consumo"
-    def key_consumo(v):
-        if v.startswith("Nessun"): return (2,0)
-        num = int(v.split()[0])
-        return (0,num) if "Mese" in v else (1,num)
-    vals = sorted(df["Ultimo Consumo"].unique(), key=key_consumo)
-    consumo_sel = st.multiselect("Filtra per Ultimo Consumo", vals, default=[])
+# sostituisci la tua funzione key_consumo con questa:
+
+def key_consumo(v):
+    # prima i mesi, poi gli anni, poi le etichette “Nessun…”
+    if v.startswith("Nessun"):
+        return (2, 0)
+    # estrai il numero all’inizio (se non è un numero, usiamo 0)
+    parts = v.split()
+    try:
+        num = int(parts[0])
+    except ValueError:
+        num = 0
+    if "Mese" in v:
+        return (0, num)
+    if "Anno" in v:
+        return (1, num)
+    # qualunque altra etichetta (es. “Oggi”) la spostiamo in fondo
+    return (3, num)
+
+# e poi riempi la lista ordinata così:
+
+valori_consumo = df["Ultimo Consumo"].dropna().unique().tolist()
+valori_filtrabili = sorted(valori_consumo, key=key_consumo)
+
 
     dff = df.copy()
     if rep_sel:      dff = dff[dff["CodReparto"].isin(rep_sel)]
@@ -390,6 +408,7 @@ def main():
 
 if __name__=="__main__":
     main()
+
 
 
 
