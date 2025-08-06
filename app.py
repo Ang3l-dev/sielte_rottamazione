@@ -316,27 +316,34 @@ def mostra_dashboard(utente):
     if isinstance(updated, pd.DataFrame):
         updated = updated.to_dict("records")
 
-    # 5) Salvataggio in background
-    if st.button("Salva"):
-        # prepara patch-only
-        df2 = df_raw.copy()
-        blocked = 0
-        for row in updated:
-            idx  = int(row["_orig_index"])
-            newf = bool(row["Rottamazione"])
-            prev = df2.at[idx, "UserRottamazione"]
-            if newf and not prev:
-                df2.at[idx, "Rottamazione"]     = True
-                df2.at[idx, "UserRottamazione"] = current_email
-            elif not newf and prev == current_email:
-                df2.at[idx, "Rottamazione"]     = False
-                df2.at[idx, "UserRottamazione"] = ""
-            elif prev and prev != current_email:
-                blocked += 1
+    # … dopo AgGrid e raccolta di `updated` …
 
-        # avvia thread per scrittura
-        threading.Thread(target=background_save, args=(df2,), daemon=True).start()
-        st.success(f"✅ Salvataggio avviato! Righe bloccate da permessi: {blocked}")
+    if st.button("Salva"):
+        # Mostriamo un indicatore di lavoro
+        with st.spinner("💾 Salvataggio in corso, attendere…"):
+            # 1) rileggete il raw DF da disco
+            df2 = pd.read_excel(DATA_FILE)
+            df2.columns = df2.columns.str.strip()
+            # 2) applicate solo le patch sui flag
+            blocked = 0
+            for row in updated:
+                idx  = int(row["_orig_index"])
+                newf = bool(row["Rottamazione"])
+                prev = df2.at[idx, "UserRottamazione"]
+                if newf and not prev:
+                    df2.at[idx, "Rottamazione"]     = True
+                    df2.at[idx, "UserRottamazione"] = current_email
+                elif not newf and prev == current_email:
+                    df2.at[idx, "Rottamazione"]     = False
+                    df2.at[idx, "UserRottamazione"] = ""
+                elif prev and prev != current_email:
+                    blocked += 1
+            # 3) scrivete il file XLSX in modo sincrono
+            df2.to_excel(DATA_FILE, index=False)
+        # 4) Notifica e refresh
+        messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
+        st.rerun()
+
 
     # 6) Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -387,5 +394,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
