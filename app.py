@@ -121,16 +121,16 @@ def background_save_logic(updated, df_raw, current_email):
     # NON fare clear o rerun qui!
     return blocked
 
-
 def background_save(updated, df_raw, current_email):
     try:
-        blocked = background_save_logic(updated, df_raw, current_email)
-        st.session_state["salvataggio_bloccati"] = blocked
-        st.session_state["pagina"] = "Redirect"
-        st.session_state["utente"] = None  # Logoff
+        _ = background_save_logic(updated, df_raw, current_email)
+        st.session_state["salvataggio_completato"] = True
+        st.session_state["pagina"] = "SalvataggioCompletato"
+        st.session_state["utente"] = None
         st.rerun()
     except Exception as e:
         st.error(f"Errore durante il salvataggio: {e}")
+
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -247,13 +247,20 @@ def interfaccia():
     with c2:
         st.markdown('<div class="title-center">Login</div>', unsafe_allow_html=True)
         
-def pagina_transizione():
+def pagina_salvataggio_completato():
     stile_login()
     st.markdown("<div class='title-center'>✅ Salvataggio effettuato</div>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>Eseguo il log off e verrai reindirizzato alla pagina di login...</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align:center;'>Eseguo il log off... Verrai reindirizzato alla pagina di login entro pochi secondi.</p>", unsafe_allow_html=True)
+    
+    # Redirect dopo 3 secondi
     st.markdown("""
-        <meta http-equiv="refresh" content="3;url=/" />
+        <script>
+        setTimeout(function() {
+            window.location.href = "/";
+        }, 3000);
+        </script>
     """, unsafe_allow_html=True)
+
 
 # --- Main ---
 def main():
@@ -263,22 +270,22 @@ def main():
     if "utente" not in st.session_state:
         st.session_state["utente"] = None
 
-    # Pagina intermedia di transizione
-    if st.session_state["pagina"] == "Redirect":
-        pagina_transizione()
+    # 1. Pagina transitoria dopo salvataggio
+    if st.session_state["pagina"] == "SalvataggioCompletato":
+        pagina_salvataggio_completato()
         return
 
-    # Cambio password forzato
+    # 2. Cambio password forzato
     if st.session_state.get("utente_reset"):
         cambio_password_forzato()
         return
 
-    # Dashboard principale
+    # 3. Dashboard principale
     if st.session_state["utente"]:
         mostra_dashboard(st.session_state["utente"])
         return
 
-    # Login, registrazione, recupero password
+    # 4. Login / Registrazione / Recupero
     interfaccia()
     pagine = ["Login", "Registrazione", "Recupera Password"]
     scelta = st.radio("Navigazione", pagine, index=pagine.index(st.session_state["pagina"]))
@@ -292,8 +299,10 @@ def main():
         recupera_password()
 
 
+
 if __name__ == "__main__":
     main()
+
 
 
 
