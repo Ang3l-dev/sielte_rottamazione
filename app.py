@@ -142,13 +142,12 @@ def mostra_dashboard(utente):
     st.write(f"Ruolo: **{utente['ruolo']}**")
     current_email = utente["email"]
 
-    # 1) Leggi il file Excel da disco UNA volta
+    # 1) Leggi il file Parquet da disco UNA volta
     try:
-        df_raw = pd.read_excel(DATA_FILE)
+        df_raw = carica_dataframe()
     except Exception as e:
-        st.error(f"Errore caricamento Excel: {e}")
+        st.error(f"Errore caricamento dati: {e}")
         return
-    df_raw.columns = df_raw.columns.str.strip()
 
     # Assicuriamoci che esistano le colonne di flag
     df_raw["Rottamazione"]     = df_raw.get("Rottamazione", False).fillna(False).astype(bool)
@@ -237,10 +236,10 @@ def mostra_dashboard(utente):
                     df2.at[idx, "UserRottamazione"] = ""
                 elif prev and prev != current_email:
                     blocked += 1
-            df2.to_excel(DATA_FILE, index=False)
+            df2.to_parquet(DATA_FILE, index=False, engine="pyarrow")
 
         messaggio_successo(f"✅ Salvataggio completato! Righe non modificate: {blocked}")
-        st.rerun()   # <— QUI facciamo il refresh _solo_ dopo il salvataggio
+        st.rerun()
 
     # 7) STATISTICHE
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
@@ -291,6 +290,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
