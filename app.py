@@ -188,9 +188,16 @@ def mostra_dashboard(utente):
     gb.configure_column("UserRottamazione",editable=False)
     resp=AgGrid(grid_df,gridOptions=gb.build(),fit_columns_on_grid_load=True,update_mode=GridUpdateMode.MODEL_CHANGED,data_return_mode=DataReturnMode.FILTERED_AND_SORTED)
     updated=resp["data"] if not isinstance(resp["data"],pd.DataFrame) else resp["data"].to_dict("records")
-    # Salva
-    if st.button("Salva"):
+        # Salva con messaggio di attesa subito
+    if "salvataggio_in_corso" not in st.session_state:
+        st.session_state["salvataggio_in_corso"] = False
+
+    if st.session_state["salvataggio_in_corso"]:
+        st.info("⏳ Attendere: salvataggio in corso...")
         background_save(updated, df_raw, current_email)
+    elif st.button("Salva"):
+        st.session_state["salvataggio_in_corso"] = True
+
     # Statistiche
     st.markdown(f"**Totale articoli filtrati:** {len(dff)}")
     st.markdown(f"**Articoli da rottamare:** {dff['Rottamazione'].sum()}")
@@ -219,5 +226,4 @@ def main():
     else:recupera_password()
 
 if __name__=="__main__":main()
-
 
