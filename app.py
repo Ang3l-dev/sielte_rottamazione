@@ -129,12 +129,14 @@ def background_save(updated, df_raw, current_email):
         except Exception as e:
             st.error(f"Errore salvataggio: {e}")
 
-    threading.Thread(target=async_save).start()
-    st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
-    st.markdown("""
-        <meta http-equiv="refresh" content="3;url=/" />
-    """, unsafe_allow_html=True)
-    st.stop()
+    with st.spinner("💾 Salvataggio in corso, attendere..."):
+        threading.Thread(target=async_save).start()
+        st.success("✅ Salvataggio effettuato con successo. Stai per essere reindirizzato alla pagina di login.")
+        st.markdown("""
+            <meta http-equiv="refresh" content="3;url=/" />
+        """, unsafe_allow_html=True)
+        st.stop()
+
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -281,4 +283,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
