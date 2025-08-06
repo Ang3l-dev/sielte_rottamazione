@@ -159,6 +159,76 @@ def cambio_password_forzato():
             st.session_state["pagina"]="Login"
             st.session_state.pop("utente_reset")
             st.rerun()
+# --- Registrazione ---
+@st.cache_data
+def carica_reparti_da_excel():
+    try:
+        df_tmp = load_data(DATA_FILE)
+        return sorted(df_tmp["CodReparto"].fillna("").astype(str).unique())
+    except:
+        return []
+
+def registrazione():
+    st.markdown('<div class="title-center">Registrazione</div>', unsafe_allow_html=True)
+    nome = st.text_input("Nome")
+    cognome = st.text_input("Cognome")
+    email = st.text_input("Email")
+    pwd  = st.text_input("Password", type="password")
+    pwd2 = st.text_input("Conferma Password", type="password")
+    st.caption("🔐 Min 6 caratteri, un numero e un simbolo.")
+
+    # Carica reparti dalla colonna CodReparto
+    rep_disp = carica_reparti_da_excel()
+    rep_sel  = st.multiselect("Reparti abilitati", rep_disp)
+
+    if st.button("Registra"):
+        errs = []
+        if not nome.strip():     errs.append("Nome mancante")
+        if not cognome.strip():  errs.append("Cognome mancante")
+        if not email.strip():    errs.append("Email mancante")
+        if pwd!=pwd2:            errs.append("Password non corrispondono")
+        if len(pwd)<6 or not re.search(r"\d",pwd) or not re.search(r"[^\w\s]",pwd):
+            errs.append("Password non conforme")
+        if not rep_sel:          errs.append("Seleziona almeno un reparto")
+
+        users = carica_utenti()
+        if any(u["email"].lower()==email.lower() for u in users):
+            errs.append("⚠️ Email già registrata")
+
+        if errs:
+            for e in errs: st.error(f"❌ {e}")
+            return
+
+        nuovo = {
+            "nome": nome, "cognome": cognome, "email": email,
+            "password": pwd, "ruolo": "User",
+            "reparti": rep_sel, "reset_required": False
+        }
+        users.append(nuovo)
+        salva_utenti(users)
+        st.success("✅ Registrazione avvenuta. Effettua il login.")
+        st.session_state["pagina"] = "Login"
+        st.rerun()
+
+# --- Recupero Password ---
+def recupera_password():
+    st.markdown('<div class="title-center">Recupera Password</div>', unsafe_allow_html=True)
+    email = st.text_input("Inserisci email per reset")
+    if st.button("Invia nuova password"):
+        users = carica_utenti()
+        u = next((x for x in users if x["email"].lower()==email.lower()), None)
+        if not u:
+            st.error("⚠️ Email non trovata")
+            return
+        new_pwd = genera_password_temporanea()
+        u["password"] = new_pwd
+        u["reset_required"] = True
+        salva_utenti(users)
+        if invia_email_nuova_password(email, new_pwd):
+            st.success("✅ Mail inviata. Controlla la posta.")
+        else:
+            st.error("❌ Errore invio email")
+
 
 # --- Helper intervallo ---
 def calcola_intervallo(dt):
@@ -305,6 +375,7 @@ def main():
 
 if __name__=="__main__":
     main()
+
 
 
 
