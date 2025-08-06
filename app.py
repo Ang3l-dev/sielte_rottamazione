@@ -122,15 +122,30 @@ def background_save_logic(updated, df_raw, current_email):
     return blocked
 
 def background_save(updated, df_raw, current_email):
+    placeholder = st.empty()  # Riserva spazio nella UI
+
+    # Mostra subito messaggio
+    with placeholder.container():
+        stile_login()
+        st.markdown("<div class='title-center'>💾 Salvataggio in corso...</div>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align:center;'>Attendere, stiamo salvando i dati e uscendo dall'applicazione.</p>", unsafe_allow_html=True)
+
+    # Ritarda il salvataggio per mostrare il messaggio prima
+    time.sleep(0.5)  # <-- Forza rendering del messaggio
+
     try:
-        _ = background_save_logic(updated, df_raw, current_email)
-        st.session_state["salvataggio_completato"] = True
-        st.session_state["pagina"] = "SalvataggioCompletato"
+        background_save_logic(updated, df_raw, current_email)
         st.session_state["utente"] = None
-        st.rerun()
+        st.session_state["pagina"] = "Login"
+        placeholder.empty()  # Pulisce
+        st.success("✅ Salvataggio completato. Verrai reindirizzato alla pagina di login.")
+        st.markdown("""
+            <meta http-equiv="refresh" content="2;url=/" />
+        """, unsafe_allow_html=True)
+        st.stop()
     except Exception as e:
         st.error(f"Errore durante il salvataggio: {e}")
-
+        st.stop()
 
 # --- Login / Registrazione / Reset Password ---
 def login():
@@ -302,6 +317,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
