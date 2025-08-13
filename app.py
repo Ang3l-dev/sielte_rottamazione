@@ -94,13 +94,18 @@ def _assert_or_fix_unique(df, label, on_error="fix"):
 def stile_login():
     st.markdown("""
         <style>
+        /* ===== Sfondo generale app ===== */
         .stApp {
             background: linear-gradient(135deg, #002244 0%, #003366 50%, #0077C8 100%) !important;
-            color: white;
+            color: white !important;
         }
+
+        /* ===== Testo generale in bianco ===== */
         label, div[data-baseweb="radio"] *, .st-emotion-cache-10trblm, .stMarkdown p {
             color: white !important;
         }
+
+        /* ===== Titolo centrato ===== */
         .title-center {
             text-align: center;
             color: white;
@@ -108,6 +113,8 @@ def stile_login():
             font-weight: 700;
             margin: 1rem 0 0.5rem 0;
         }
+
+        /* ===== Pulsanti ===== */
         .stButton > button {
             background-color: #00bcd4 !important;
             color: white !important;
@@ -116,6 +123,8 @@ def stile_login():
             padding: 0.5rem 1.25rem !important;
             border: none !important;
         }
+
+        /* ===== Messaggi di successo personalizzati ===== */
         .custom-success {
             background-color: #2e7d32;
             padding: 0.75rem 1rem;
@@ -123,9 +132,36 @@ def stile_login():
             color: #fff;
             font-weight: 700;
         }
+
+        /* ===== Pulsanti download ===== */
         [data-testid="stDownloadButton"] button {
             color: black !important;
             font-weight: bold !important;
+        }
+
+        /* ===== Radio button testo sempre bianco (anche in sidebar) ===== */
+        [data-testid="stSidebar"] [role="radiogroup"] p,
+        [role="radiogroup"] p {
+            color: #fff !important;
+        }
+
+        /* Forza opacità al 100% per radio non selezionati */
+        [data-testid="stSidebar"] [role="radiogroup"] label,
+        [role="radiogroup"] label {
+            opacity: 1 !important;
+        }
+
+        /* Cerchietto del radio in bianco quando non selezionato */
+        [data-testid="stSidebar"] [role="radiogroup"] svg,
+        [role="radiogroup"] svg {
+            color: #fff !important;
+            fill: #fff !important;
+        }
+
+        /* Forza bianco anche su label markdown dei radio */
+        [data-testid="stSidebar"] [role="radiogroup"] [data-testid="stMarkdownContainer"] p,
+        [role="radiogroup"] [data-testid="stMarkdownContainer"] p {
+            color: #fff !important;
         }
         </style>
     """, unsafe_allow_html=True)
@@ -600,3 +636,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
